@@ -13,8 +13,7 @@ Zigbee follow as further modules.
             cmd / cmd/res ───┘   settings.set, register.write
 ```
 
-Not deployed anywhere yet. It will ship as a PulzarOS package (see "Before it can
-ship" below); until then it is built and run by hand.
+Not deployed anywhere yet. PulzarOS packages it (see "Before it can ship" below).
 
 ## What it does
 
@@ -213,10 +212,10 @@ tested with.
 
 ## Before it can ship as a PulzarOS package
 
-- The PulzarOS package (`feed/pulzr-edge`: an `arches` file and a `fetch` that
-  takes this repository's release binaries by checksum, a procd init script, a
-  default config, `state_dir` on persistent storage). It needs this repository
-  public, or the fetch a token, since PulzarOS builds download the release.
+- In an image: PulzarOS has the package (`feed/pulzr-edge`, this repository's
+  release binaries by checksum, started only once `/etc/pulzr-edge/config.toml`
+  exists, kept across upgrades), but no board includes it yet. That waits for
+  the console side below.
 - The broker certificate flow: how a gateway gets its adapter certificate and
   where the PEM files live.
 - Console side: add a bus to a gateway, scan unit ids, register maps arriving as
