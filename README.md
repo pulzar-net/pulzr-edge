@@ -184,30 +184,42 @@ Release builds are size optimised (`opt-level = "s"`, LTO, stripped, abort on pa
 
 ### Targets
 
-Gateways run musl. With [`cross`](https://github.com/cross-rs/cross) (needs
-Docker; install with `cargo install cross --locked`):
+Gateways run musl, and the release binaries are static. A tag `v<version>`
+(the workspace version) runs `.github/workflows/release.yml`, which runs the
+whole test suite for each target under qemu-user, builds, and publishes the
+binaries with a `SHA256SUMS`:
+
+| Asset | Target | PulzarOS arch |
+|---|---|---|
+| `pulzr-edge-aarch64-linux-musl` | `aarch64-unknown-linux-musl` | `aarch64_cortex-a53`, `-a72`, `-a76` (Pi 3, 4, 5) |
+| `pulzr-edge-mipsel-linux-musl` | `mipsel-unknown-linux-musl` | `mipsel_24kc` (RAK7268, RAK7289, GL-SFT1200) |
+
+By hand, with [zig](https://ziglang.org) and
+[cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):
 
 ```sh
-cross build --release --target aarch64-unknown-linux-musl     # Pi 3/4/5, 64 bit boards
-cross build --release --target armv7-unknown-linux-musleabihf # 32 bit ARM boards
-cross build --release --target mipsel-unknown-linux-musl      # MT76xx routers (see below)
+rustup target add aarch64-unknown-linux-musl
+cargo zigbuild --release -p pulzr-edge --target aarch64-unknown-linux-musl
+
+# mipsel is tier 3: std is built on nightly, and zig supplies musl's C runtime
+rustup toolchain install nightly --profile minimal -c rust-src
+RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=no" \
+  cargo +nightly zigbuild --release -p pulzr-edge \
+  --target mipsel-unknown-linux-musl -Zbuild-std=std,panic_abort
 ```
 
-Without Docker, `rustup target add aarch64-unknown-linux-musl` plus a musl
-cross C compiler works the same way (the TLS crate `ring` compiles C and assembly).
-
-`mipsel` caveat: `rustls` is built on `ring`, which has no MIPS support, and the
-`mipsel-unknown-linux-musl` target is tier 3 (no prebuilt std, `-Zbuild-std`
-on nightly). TLS on MIPS needs a different crypto provider or a TLS library from
-the OpenWrt build; that is an open item, not something this repository has built.
+`ring` (under `rustls`) has no MIPS assembly and compiles its portable C there:
+slower handshakes, same results. The release workflow pins the nightly it was
+tested with.
 
 ## Before it can ship as a PulzarOS package
 
-- An OpenWrt package (Makefile, procd init script, default config, `state_dir`
-  on persistent storage) and the build on the PulzarOS toolchain for each board.
+- The PulzarOS package (`feed/pulzr-edge`: an `arches` file and a `fetch` that
+  takes this repository's release binaries by checksum, a procd init script, a
+  default config, `state_dir` on persistent storage). It needs this repository
+  public, or the fetch a token, since PulzarOS builds download the release.
 - The broker certificate flow: how a gateway gets its adapter certificate and
   where the PEM files live.
-- A TLS story for mipsel (see above) if MIPS boards are in scope.
 - Console side: add a bus to a gateway, scan unit ids, register maps arriving as
   device packages (this daemon reads a file; the package format and delivery are
   not wired).

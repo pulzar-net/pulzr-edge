@@ -1,0 +1,85 @@
+# Static musl binaries for the gateways, on a tag.
+#
+#   aarch64-unknown-linux-musl   Pi 3, 4 and 5 (PulzarOS aarch64_cortex-a53/a72/a76)
+#   mipsel-unknown-linux-musl    RAK7268/7289, GL-SFT1200 (PulzarOS mipsel_24kc)
+#
+# PulzarOS stages them like ChirpStack's: its feed/pulzr-edge/fetch downloads
+# one by name from this release and checks it against SHA256SUMS.
+#
+# mipsel is a tier 3 target: no prebuilt std, so it builds std itself on a
+# pinned nightly (-Zbuild-std), and links against zig's musl because Rust ships
+# no self-contained C runtime for it. ring compiles its portable C there; it
+# has no MIPS assembly, which costs speed, not correctness.
+#
+# Every target's whole test suite runs under qemu-user before anything is
+# published, so a binary that cannot run (atomics, endianness, a syscall)
+# fails here and not on a gateway.
+
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NIGHTLY: nightly-2026-11-14
+  ZIG: 0.16.0
+  ZIGBUILD: 0.24.1
+
+jobs:
+  build:
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The tag is the crate version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          want="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          [ "${GITHUB_REF_NAME#v}" = "${want}" ] || { echo "tag ${GITHUB_REF_NAME} is not v${want}" >&2; exit 1; }
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY }}
+          components: rust-src
+          targets: aarch64-unknown-linux-musl
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild@${{ env.ZIGBUILD }}
+      - name: qemu-user
+        run: sudo apt-get update -q && sudo apt-get install -y -q qemu-user
+
+      - name: Test and build
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
+          CARGO_TARGET_MIPSEL_UNKNOWN_LINUX_MUSL_RUNNER: qemu-mipsel
+          CARGO_TARGET_MIPSEL_UNKNOWN_LINUX_MUSL_RUSTFLAGS: -C target-feature=+crt-static -C link-self-contained=no
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in aarch64-unknown-linux-musl mipsel-unknown-linux-musl; do
+            std=()
+            [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std)
+            cargo-zigbuild test --workspace --target "${target}" "${std[@]}"
+            [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std=std,panic_abort)
+            cargo zigbuild --release -p pulzr-edge --target "${target}" "${std[@]}"
+            bin="target/${target}/release/pulzr-edge"
+            file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: not static" >&2; exit 1; }
+            runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
+            "${!runner}" "${bin}" --version
+            cp "${bin}" "dist/pulzr-edge-${target%%-*}-linux-musl"
+          done
+          (cd dist && sha256sum pulzr-edge-* > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --title "${GITHUB_REF_NAME}" --generate-notes
