@@ -1,13 +1,17 @@
 gateway_eui = "aabbccddeeff0011"
-# adapter = "edge-aabbccddeeff0011"   # default; must match the certificate's name
+# adapter = "edge-aabbccddeeff0011"   # default; with a client certificate it must match the name in it
 state_dir = "/var/lib/pulzr-edge"
 
 [broker]
 host = "mqtt.example.net"
 port = 8883
-ca = "/etc/pulzr-edge/ca.pem"
-cert = "/etc/pulzr-edge/client.pem"
-key = "/etc/pulzr-edge/client.key"
+ca = "/etc/ssl/certs/ca-certificates.crt"
+# either the gateway's broker login ...
+username = "aabbccddeeff0011"
+password_file = "/var/run/pulzr-edge/password"   # password alone; read at each connect
+# ... or a client certificate of its own, not both:
+# cert = "/etc/pulzr-edge/client.pem"
+# key = "/etc/pulzr-edge/client.key"
 
 [buffer]
 max_bytes = 8388608       # disk budget for messages waiting to be sent

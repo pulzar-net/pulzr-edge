@@ -8,7 +8,7 @@ Zigbee follow as further modules.
 
 ```
  Modbus RTU (RS-485) ─┐
- Modbus TCP (LAN) ────┼─► pulzr-edge ─► disk buffer ─► MQTT 5 + TLS client cert ─► platform broker
+ Modbus TCP (LAN) ────┼─► pulzr-edge ─► disk buffer ─► MQTT 5 + TLS ─► platform broker
                       │      ▲
             cmd / cmd/res ───┘   settings.set, register.write
 ```
@@ -67,9 +67,12 @@ state_dir = "/var/lib/pulzr-edge"       # buffer and seq counters
 [broker]
 host = "mqtt.example.net"
 port = 8883
-ca = "/etc/pulzr-edge/ca.pem"
-cert = "/etc/pulzr-edge/client.pem"
-key = "/etc/pulzr-edge/client.key"
+ca = "/etc/ssl/certs/ca-certificates.crt"
+username = "aabbccddeeff0011"            # the gateway's broker login ...
+password_file = "/var/run/pulzr-edge/password"
+# ... or a client certificate of its own instead of the two lines above:
+# cert = "/etc/pulzr-edge/client.pem"
+# key = "/etc/pulzr-edge/client.key"
 
 [buffer]
 max_bytes = 8388608
@@ -96,7 +99,11 @@ id = 1
 map = "maps/generic-energy-meter.toml"
 ```
 
-`tls = false` in `[broker]` is for a local test broker only. Put `state_dir` on
+Broker auth is `cert` + `key` (mutual TLS) or `username` + `password_file`, never
+both and never neither; config load refuses it otherwise. `password_file` holds
+the password alone (a trailing newline is trimmed) and is read at every connect,
+so a rotated token is picked up on the next reconnect without a restart. With
+either, TLS verifies the server against `ca`. `tls = false` in `[broker]` is for a local test broker only. Put `state_dir` on
 storage that survives reboots and tolerates writes (the buffer is append-only and
 the `seq` file is rewritten once per 1000 messages per device, but a small flash
 overlay is still the wrong place).
@@ -216,8 +223,9 @@ tested with.
   release binaries by checksum, started only once `/etc/pulzr-edge/config.toml`
   exists, kept across upgrades), but no board includes it yet. That waits for
   the console side below.
-- The broker certificate flow: how a gateway gets its adapter certificate and
-  where the PEM files live.
+- ~~The broker certificate flow~~ Done: the daemon publishes with the gateway's
+  existing broker login (`username` + `password_file`), so no certificate of its
+  own is issued.
 - Console side: add a bus to a gateway, scan unit ids, register maps arriving as
   device packages (this daemon reads a file; the package format and delivery are
   not wired).

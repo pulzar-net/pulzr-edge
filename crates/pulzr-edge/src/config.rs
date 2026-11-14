@@ -28,12 +28,12 @@ fn default_state_dir() -> PathBuf {
     "/var/lib/pulzr-edge".into()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Broker {
     pub host: String,
     #[serde(default = "default_port")]
     pub port: u16,
-    /// TLS with a client certificate (default). `false` only for a local test broker.
+    /// TLS (default). `false` only for a local test broker.
     #[serde(default = "yes")]
     pub tls: bool,
     /// PEM file with the CA that signed the broker's certificate.
@@ -41,6 +41,11 @@ pub struct Broker {
     /// PEM client certificate chain and private key naming this adapter.
     pub cert: Option<PathBuf>,
     pub key: Option<PathBuf>,
+    /// Or a username and a file holding its password (the gateway's own broker
+    /// login). The file is read at every connect, so a rotated token is picked up
+    /// on the next reconnect; a trailing newline is trimmed.
+    pub username: Option<String>,
+    pub password_file: Option<PathBuf>,
     #[serde(default = "default_keep_alive")]
     pub keep_alive_secs: u64,
 }
@@ -211,10 +216,25 @@ impl Config {
         if adapter.is_empty() || adapter.contains(['/', '+', '#', '\0']) {
             bail!("adapter {adapter:?} cannot be a topic level");
         }
-        if self.broker.tls
-            && (self.broker.ca.is_none() || self.broker.cert.is_none() || self.broker.key.is_none())
-        {
-            bail!("broker.tls needs ca, cert and key (or tls = false for a local test broker)");
+        let b = &self.broker;
+        let cert_auth = match (&b.cert, &b.key) {
+            (Some(_), Some(_)) => true,
+            (None, None) => false,
+            _ => bail!("broker.cert and broker.key go together"),
+        };
+        let pass_auth = match (&b.username, &b.password_file) {
+            (Some(_), Some(_)) => true,
+            (None, None) => false,
+            _ => bail!("broker.username and broker.password_file go together"),
+        };
+        if cert_auth && pass_auth {
+            bail!("broker authenticates with cert and key or with username and password_file, not both");
+        }
+        if b.tls && !(cert_auth || pass_auth) {
+            bail!("broker.tls needs cert and key, or username and password_file (or tls = false for a local test broker)");
+        }
+        if b.tls && b.ca.is_none() {
+            bail!("broker.tls needs ca (or tls = false for a local test broker)");
         }
         let mut seen = std::collections::HashSet::new();
         for b in &self.buses {
@@ -286,5 +306,39 @@ map = "maps/meter.toml"
         assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
         let bad = GOOD.replace("key = \"k.pem\"\n", "");
         assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
+    }
+
+    fn check(text: &str) -> Result<()> {
+        toml::from_str::<Config>(text).unwrap().validate()
+    }
+
+    #[test]
+    fn broker_auth_is_cert_or_password() {
+        let pass = GOOD.replace(
+            "cert = \"c.pem\"\nkey = \"k.pem\"\n",
+            "username = \"gw\"\npassword_file = \"/run/pw\"\n",
+        );
+        check(&pass).unwrap();
+        // both, or neither
+        assert!(check(&GOOD.replace(
+            "[[bus]]",
+            "username = \"gw\"\npassword_file = \"p\"\n[[bus]]"
+        ))
+        .is_err());
+        assert!(
+            check(&pass.replace("username = \"gw\"\npassword_file = \"/run/pw\"\n", "")).is_err()
+        );
+        // half a pair
+        assert!(check(&pass.replace("password_file = \"/run/pw\"\n", "")).is_err());
+        // password auth still verifies the server, so it needs a CA
+        assert!(check(&pass.replace("ca = \"ca.pem\"\n", "")).is_err());
+        // a local test broker needs neither
+        let local = pass
+            .replace(
+                "username = \"gw\"\npassword_file = \"/run/pw\"\n",
+                "tls = false\n",
+            )
+            .replace("ca = \"ca.pem\"\n", "");
+        check(&local).unwrap();
     }
 }

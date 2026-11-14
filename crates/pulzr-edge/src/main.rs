@@ -106,6 +106,7 @@ async fn main() -> Result<()> {
     let opts = mqtt::options(&cfg.broker, &adapter).context("broker options")?;
     let session = tokio::spawn(mqtt::run(
         opts,
+        cfg.broker.clone(),
         out.clone(),
         Arc::new(router),
         stop_rx.clone(),

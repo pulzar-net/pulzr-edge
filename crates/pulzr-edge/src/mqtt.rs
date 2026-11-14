@@ -11,33 +11,50 @@ use rumqttc::{
     v5::{mqttbytes::QoS, AsyncClient, Event, Incoming, MqttOptions},
     TlsConfiguration, Transport,
 };
-use std::{sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 use tokio::sync::{watch, Notify};
 
 fn tls(b: &Broker) -> Result<TlsConfiguration> {
-    let (ca, cert, key) = (
-        b.ca.as_ref().unwrap(),
-        b.cert.as_ref().unwrap(),
-        b.key.as_ref().unwrap(),
-    );
+    let ca = b.ca.as_ref().unwrap();
     let mut roots = rustls::RootCertStore::empty();
     for c in
         CertificateDer::pem_file_iter(ca).with_context(|| format!("reading {}", ca.display()))?
     {
         roots.add(c?)?;
     }
-    let chain = CertificateDer::pem_file_iter(cert)
-        .with_context(|| format!("reading {}", cert.display()))?
-        .collect::<Result<Vec<_>, _>>()?;
-    let key =
-        PrivateKeyDer::from_pem_file(key).with_context(|| format!("reading {}", key.display()))?;
-    let cfg = rustls::ClientConfig::builder_with_provider(Arc::new(
+    let builder = rustls::ClientConfig::builder_with_provider(Arc::new(
         rustls::crypto::ring::default_provider(),
     ))
     .with_safe_default_protocol_versions()?
-    .with_root_certificates(roots)
-    .with_client_auth_cert(chain, key)?;
+    .with_root_certificates(roots);
+    let cfg = match (&b.cert, &b.key) {
+        (Some(cert), Some(key)) => {
+            let chain = CertificateDer::pem_file_iter(cert)
+                .with_context(|| format!("reading {}", cert.display()))?
+                .collect::<Result<Vec<_>, _>>()?;
+            let key = PrivateKeyDer::from_pem_file(key)
+                .with_context(|| format!("reading {}", key.display()))?;
+            builder.with_client_auth_cert(chain, key)?
+        }
+        _ => builder.with_no_client_auth(),
+    };
     Ok(TlsConfiguration::Rustls(Arc::new(cfg)))
+}
+
+/// The password in `file`, without its trailing newline.
+fn read_password(file: &Path) -> Result<String> {
+    let text =
+        std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?;
+    Ok(text.trim_end_matches(['\r', '\n']).to_owned())
+}
+
+/// Put the broker login into `o`, reading the password file now. `run` calls it
+/// again before every reconnect, so a rotated token is picked up.
+pub fn set_login(o: &mut MqttOptions, b: &Broker) -> Result<()> {
+    if let (Some(user), Some(file)) = (&b.username, &b.password_file) {
+        o.set_credentials(user, read_password(file)?);
+    }
+    Ok(())
 }
 
 pub fn options(b: &Broker, client_id: &str) -> Result<MqttOptions> {
@@ -45,6 +62,7 @@ pub fn options(b: &Broker, client_id: &str) -> Result<MqttOptions> {
     o.set_keep_alive(Duration::from_secs(b.keep_alive_secs));
     o.set_clean_start(false);
     o.set_session_expiry_interval(Some(3600));
+    set_login(&mut o, b)?;
     if b.tls {
         o.set_transport(Transport::tls_with_config(tls(b)?));
     }
@@ -54,6 +72,7 @@ pub fn options(b: &Broker, client_id: &str) -> Result<MqttOptions> {
 /// Run until `shutdown`. Reconnects with a backoff of 1 s doubling to 30 s.
 pub async fn run(
     opts: MqttOptions,
+    broker: Broker,
     out: Outbox,
     router: Arc<Router>,
     mut shutdown: watch::Receiver<bool>,
@@ -93,6 +112,9 @@ pub async fn run(
                     tracing::warn!(error = %e, retry_in = ?backoff, "broker connection lost");
                     tokio::select! { _ = tokio::time::sleep(backoff) => {}, _ = shutdown.changed() => break }
                     backoff = (backoff * 2).min(Duration::from_secs(30));
+                    if let Err(e) = set_login(&mut ev.options, &broker) {
+                        tracing::error!(error = %e, "password file unreadable, keeping the last password");
+                    }
                 }
             }
         }
@@ -141,5 +163,46 @@ async fn send_loop(
             Ok(()) => out.ack(&entry),
             Err(_) => tracing::warn!(topic = %entry.topic, "no PubAck in 15 s, sending again"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn broker(file: &Path) -> Broker {
+        Broker {
+            host: "mqtt.example.net".into(),
+            port: 8883,
+            tls: false,
+            ca: None,
+            cert: None,
+            key: None,
+            username: Some("aabbccddeeff0011".into()),
+            password_file: Some(file.to_path_buf()),
+            keep_alive_secs: 30,
+        }
+    }
+
+    #[test]
+    fn password_file_is_read_trimmed_and_reread() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("password");
+        std::fs::write(&file, "s3cret\n").unwrap();
+        let b = broker(&file);
+        let mut o = options(&b, "edge-aabbccddeeff0011").unwrap();
+        let login = |o: &MqttOptions| {
+            let l = o.credentials().unwrap();
+            (l.username, l.password)
+        };
+        assert_eq!(
+            login(&o),
+            ("aabbccddeeff0011".to_string(), "s3cret".to_string())
+        );
+        std::fs::write(&file, "rotated\r\n").unwrap();
+        set_login(&mut o, &b).unwrap();
+        assert_eq!(login(&o).1, "rotated".to_string());
+        std::fs::remove_file(&file).unwrap();
+        assert!(set_login(&mut o, &b).is_err());
     }
 }
