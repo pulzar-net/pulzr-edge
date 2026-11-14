@@ -21,9 +21,8 @@ ship" below); until then it is built and run by hand.
 - Each Modbus unit is a device with the key `modbus:<gateway-eui>.<bus>.<unit>`.
 - Polls each unit on its register map's schedule, one request in flight per bus
   (polls and writes never interleave), with a timeout, retries and backoff.
-- Reports a field on **change past its deadband** or when its **heartbeat** runs out
-  (the same rules as the ardumidor data plan), as `up` with a per-device `seq`,
-  `r`, `rx` and `link.modbus`.
+- Reports a field on **change past its deadband** or when its **heartbeat** runs
+  out, as `up` with a per-device `seq`, `r`, `rx` and `link.modbus`.
 - Publishes per-unit `state` (`online`, `last_heard`, `package`) when a unit stops
   answering (after `offline_after` failed polls) and when it comes back.
 - Takes `cmd` for `settings.set` and `register.write`, only for registers the map
@@ -63,7 +62,7 @@ the string patterns (ids, keys, reading names) are enforced when it publishes.
 `pulzr-edge <config.toml>`. See `examples/config.toml`.
 
 ```toml
-gateway_eui = "b827ebfffe67f36b"
+gateway_eui = "aabbccddeeff0011"
 state_dir = "/var/lib/pulzr-edge"       # buffer and seq counters
 
 [broker]

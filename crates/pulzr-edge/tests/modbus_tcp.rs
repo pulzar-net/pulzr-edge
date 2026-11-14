@@ -24,7 +24,7 @@ use tokio_modbus::{
     ExceptionCode, Request, Response, SlaveRequest,
 };
 
-const GW: &str = "b827ebfffe67f36b";
+const GW: &str = "aabbccddeeff0011";
 const MAP: &str = r#"
 schema = 0
 model = "test-meter"

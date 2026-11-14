@@ -244,7 +244,7 @@ mod tests {
     use super::*;
 
     const GOOD: &str = r#"
-gateway_eui = "b827ebfffe67f36b"
+gateway_eui = "aabbccddeeff0011"
 [broker]
 host = "mqtt.example.net"
 ca = "ca.pem"
@@ -270,17 +270,17 @@ map = "maps/meter.toml"
     fn parses_and_derives_keys() {
         let c: Config = toml::from_str(GOOD).unwrap();
         c.validate().unwrap();
-        assert_eq!(c.adapter(), "edge-b827ebfffe67f36b");
+        assert_eq!(c.adapter(), "edge-aabbccddeeff0011");
         assert_eq!(
             c.device_key("rs485-0", 17),
-            "modbus:b827ebfffe67f36b.rs485-0.17"
+            "modbus:aabbccddeeff0011.rs485-0.17"
         );
         assert!(matches!(c.buses[0].kind, BusKind::Rtu { baud: 9600, .. }));
     }
 
     #[test]
     fn rejects_bad_eui_unit_and_missing_tls() {
-        let bad = GOOD.replace("b827ebfffe67f36b", "B827EBFFFE67F36B");
+        let bad = GOOD.replace("aabbccddeeff0011", "AABBCCDDEEFF0011");
         assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
         let bad = GOOD.replace("id = 17", "id = 0");
         assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());

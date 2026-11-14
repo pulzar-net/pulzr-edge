@@ -199,11 +199,11 @@ mod tests {
     #[test]
     fn queued_messages_and_seq_survive_a_restart() {
         let d = tempfile::tempdir().unwrap();
-        let k = "modbus:b827ebfffe67f36b.rs485-0.17";
+        let k = "modbus:aabbccddeeff0011.rs485-0.17";
         let o = Outbox::open(
             d.path(),
-            "edge-b827ebfffe67f36b",
-            "b827ebfffe67f36b",
+            "edge-aabbccddeeff0011",
+            "aabbccddeeff0011",
             1 << 20,
         )
         .unwrap();
@@ -214,13 +214,13 @@ mod tests {
         drop(o);
         let o = Outbox::open(
             d.path(),
-            "edge-b827ebfffe67f36b",
-            "b827ebfffe67f36b",
+            "edge-aabbccddeeff0011",
+            "aabbccddeeff0011",
             1 << 20,
         )
         .unwrap();
         up(&o, k, 9.0);
-        up(&o, "modbus:b827ebfffe67f36b.rs485-0.18", 1.0);
+        up(&o, "modbus:aabbccddeeff0011.rs485-0.18", 1.0);
         assert_eq!(
             seqs(&o),
             [0, 1, 2, 3, 0],
@@ -233,23 +233,23 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let o = Outbox::open(
             d.path(),
-            "edge-b827ebfffe67f36b",
-            "b827ebfffe67f36b",
+            "edge-aabbccddeeff0011",
+            "aabbccddeeff0011",
             1 << 20,
         )
         .unwrap();
-        o.state("modbus:b827ebfffe67f36b.rs485-0.17", true, Some(5.0), None);
+        o.state("modbus:aabbccddeeff0011.rs485-0.17", true, Some(5.0), None);
         let e = o.peek().unwrap();
         assert_eq!(
             e.topic,
-            "pulzr/a/edge-b827ebfffe67f36b/d/modbus:b827ebfffe67f36b.rs485-0.17/state"
+            "pulzr/a/edge-aabbccddeeff0011/d/modbus:aabbccddeeff0011.rs485-0.17/state"
         );
     }
 
     #[test]
     fn a_body_that_breaks_the_protocol_is_not_queued() {
         let d = tempfile::tempdir().unwrap();
-        let o = Outbox::open(d.path(), "a", "b827ebfffe67f36b", 1 << 20).unwrap();
+        let o = Outbox::open(d.path(), "a", "aabbccddeeff0011", 1 << 20).unwrap();
         o.cmd_res("k", "short", "ok", None, None, None); // id needs 8-64 characters
         assert_eq!(o.pending(), 0);
     }

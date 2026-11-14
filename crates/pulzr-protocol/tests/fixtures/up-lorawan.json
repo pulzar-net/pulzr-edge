@@ -1,5 +1,5 @@
 { "v": 1, "dedup": "9f2c4b1a77e0d3c5",
   "r": [ { "ts": 1793051880, "v": { "temperature": 21.4, "battery": 87 } } ],
   "raw": { "ts": 1793051880, "port": 2, "b64": "AQIDBA==" },
-  "rx": [ { "via": "gw:b827ebfffe67f36b", "rssi": -97, "snr": 7.5, "ts": 1793051880.112, "time": "gps" } ],
+  "rx": [ { "via": "gw:aabbccddeeff0011", "rssi": -97, "snr": 7.5, "ts": 1793051880.112, "time": "gps" } ],
   "link": { "lorawan": { "fcnt": 41, "dr": 3, "sf": 9, "freq": 904300000, "airtime_ms": 185 } } }

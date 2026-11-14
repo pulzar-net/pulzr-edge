@@ -1,5 +1,5 @@
-gateway_eui = "b827ebfffe67f36b"
-# adapter = "edge-b827ebfffe67f36b"   # default; must match the certificate's name
+gateway_eui = "aabbccddeeff0011"
+# adapter = "edge-aabbccddeeff0011"   # default; must match the certificate's name
 state_dir = "/var/lib/pulzr-edge"
 
 [broker]
