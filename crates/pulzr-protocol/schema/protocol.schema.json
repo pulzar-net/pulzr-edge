@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pulzar-net/pulzr-protocol/schema/protocol.schema.json",
+  "title": "Pulzar protocol, version 1",
+  "description": "Message bodies between devices or adapters and the Pulzar platform. See README.md.",
+  "$defs": {
+    "deviceKey": {
+      "type": "string",
+      "pattern": "^(lorawan|ble|zigbee|ip):[0-9a-f]{16}$|^modbus:[0-9a-f]{16}\\.[a-z0-9-]{1,32}\\.([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-3][0-9]|24[0-7])$|^ext:[a-z0-9-]{1,32}\\.[A-Za-z0-9._:-]{1,128}$"
+    },
+    "time": { "type": "number", "minimum": 0 },
+    "seq": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "value": { "type": ["number", "boolean", "string"] },
+    "reading": {
+      "type": "object",
+      "required": ["ts", "v"],
+      "properties": {
+        "ts": { "$ref": "#/$defs/time" },
+        "v": { "type": "object", "additionalProperties": { "$ref": "#/$defs/value" }, "propertyNames": { "pattern": "^[A-Za-z0-9_.-]{1,64}$" } }
+      },
+      "additionalProperties": false
+    },
+    "raw": {
+      "type": "object",
+      "required": ["ts", "b64"],
+      "properties": {
+        "ts": { "$ref": "#/$defs/time" },
+        "port": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "b64": { "type": "string", "contentEncoding": "base64", "maxLength": 8192 }
+      },
+      "additionalProperties": false
+    },
+    "rx": {
+      "type": "object",
+      "required": ["via"],
+      "properties": {
+        "via": { "type": "string", "pattern": "^(gw|link):[A-Za-z0-9._:-]{1,64}$" },
+        "rssi": { "type": "number" },
+        "snr": { "type": "number" },
+        "lqi": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "ts": { "$ref": "#/$defs/time" },
+        "time": { "enum": ["gps", "ntp", "device", "received"] }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "properties": {
+        "lorawan": {
+          "type": "object",
+          "properties": {
+            "fcnt": { "type": "integer", "minimum": 0 },
+            "dr": { "type": "integer", "minimum": 0, "maximum": 15 },
+            "sf": { "type": "integer", "minimum": 5, "maximum": 12 },
+            "freq": { "type": "integer", "minimum": 0 },
+            "airtime_ms": { "type": "number", "minimum": 0 },
+            "confirmed": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "ble": {
+          "type": "object",
+          "properties": { "adv": { "type": "string", "maxLength": 32 }, "tx_power": { "type": "integer" } },
+          "additionalProperties": false
+        },
+        "zigbee": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "cluster": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "profile": { "type": "integer", "minimum": 0, "maximum": 65535 }
+          },
+          "additionalProperties": false
+        },
+        "modbus": {
+          "type": "object",
+          "properties": {
+            "function": { "type": "integer", "minimum": 1, "maximum": 127 },
+            "address": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "count": { "type": "integer", "minimum": 1, "maximum": 125 },
+            "latency_ms": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "up": {
+      "type": "object",
+      "required": ["v"],
+      "properties": {
+        "v": { "const": 1 },
+        "seq": { "$ref": "#/$defs/seq" },
+        "dedup": { "type": "string", "pattern": "^[0-9a-f]{16,64}$" },
+        "r": { "type": "array", "items": { "$ref": "#/$defs/reading" }, "maxItems": 100 },
+        "raw": { "$ref": "#/$defs/raw" },
+        "rx": { "type": "array", "items": { "$ref": "#/$defs/rx" }, "maxItems": 64 },
+        "link": { "$ref": "#/$defs/link" }
+      },
+      "anyOf": [ { "required": ["r"] }, { "required": ["raw"] } ],
+      "oneOf": [ { "required": ["seq"] }, { "required": ["dedup"] } ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["v", "ts", "name"],
+      "properties": {
+        "v": { "const": 1 },
+        "seq": { "$ref": "#/$defs/seq" },
+        "ts": { "$ref": "#/$defs/time" },
+        "name": { "type": "string", "pattern": "^[a-z0-9_.-]{1,64}$" },
+        "sev": { "enum": ["critical", "warning", "info"] },
+        "data": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": ["v"],
+      "properties": {
+        "v": { "const": 1 },
+        "online": { "type": "boolean" },
+        "last_heard": { "$ref": "#/$defs/time" },
+        "fw": { "type": "string", "maxLength": 64 },
+        "package": { "type": "string", "maxLength": 80 },
+        "battery": { "type": "number", "minimum": 0, "maximum": 100 },
+        "path": { "type": "string", "maxLength": 64 },
+        "remote": { "type": "boolean" },
+        "ota": {
+          "type": ["object", "null"],
+          "properties": {
+            "version": { "type": "string" },
+            "phase": { "enum": ["downloading", "staged", "installing", "confirmed", "rolled_back", "failed"] },
+            "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+            "error": { "type": ["string", "null"] }
+          }
+        },
+        "diag": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "settings": {
+      "type": "object",
+      "required": ["v", "values"],
+      "properties": {
+        "v": { "const": 1 },
+        "version": { "type": "integer", "minimum": 0 },
+        "values": { "type": "object", "additionalProperties": { "$ref": "#/$defs/value" } },
+        "by": { "type": "string", "maxLength": 64 }
+      },
+      "additionalProperties": false
+    },
+    "cmd": {
+      "type": "object",
+      "required": ["v", "id", "name"],
+      "properties": {
+        "v": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9-]{8,64}$" },
+        "name": { "type": "string", "pattern": "^[a-z0-9_.-]{1,64}$" },
+        "params": { "type": "object" },
+        "by": {
+          "type": "object",
+          "properties": { "sub": { "type": "string" }, "role": { "type": "string" } }
+        },
+        "expires": { "$ref": "#/$defs/time" }
+      },
+      "additionalProperties": false
+    },
+    "cmdResult": {
+      "type": "object",
+      "required": ["v", "id", "status"],
+      "properties": {
+        "v": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9-]{8,64}$" },
+        "status": { "enum": ["queued", "sent", "delivered", "ok", "refused", "failed"] },
+        "reason": { "enum": ["local_only", "remote_false", "unknown", "invalid", "busy", "error", "undeliverable", "expired"] },
+        "detail": { "type": "string", "maxLength": 500 },
+        "data": { "type": "object" }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "enum": ["refused", "failed"] } } }, "then": { "required": ["reason"] } }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

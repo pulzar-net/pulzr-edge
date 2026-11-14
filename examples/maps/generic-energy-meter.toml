@@ -1,0 +1,74 @@
+# ILLUSTRATIVE register map for a made-up single-phase energy meter.
+# The addresses, types and scaling below are invented to show the format; they
+# are not taken from any vendor's documentation. Write the map for a real device
+# from its own register table.
+schema = 0
+model = "example-energy-meter"
+poll_interval = 10        # seconds, for fields that do not set their own
+heartbeat = 300           # seconds: re-report a flat value at least this often
+
+[[fields]]
+id = "voltage"
+function = 4              # input registers
+address = 0
+type = "f32"
+unit = "V"
+deadband = 0.5
+poll_interval = 5
+
+[[fields]]
+id = "current"
+function = 4
+address = 2
+type = "f32"
+unit = "A"
+deadband = 0.05
+poll_interval = 5
+
+[[fields]]
+id = "power"
+function = 4
+address = 4
+type = "f32"
+unit = "W"
+deadband = 10
+poll_interval = 5
+
+[[fields]]
+id = "energy"
+function = 4
+address = 6
+type = "u32"
+word_order = "little"     # this device sends the low word first
+scale = 0.01              # register counts hundredths of a kWh
+unit = "kWh"
+deadband = 0.05
+heartbeat = 900
+poll_interval = 60
+
+[[fields]]
+id = "alarm.overcurrent"
+function = 4
+address = 8
+type = "bool"
+bit = 0                   # bit 0 of the status register
+poll_interval = 5
+
+[[fields]]
+id = "report_period"
+function = 3              # holding register
+address = 100
+type = "u16"
+unit = "s"
+writable = true           # settings.set / register.write may change it
+min = 1
+max = 3600
+poll_interval = 60
+
+[[fields]]
+id = "relay"
+function = 1              # coil
+address = 0
+type = "bool"
+writable = true
+poll_interval = 10

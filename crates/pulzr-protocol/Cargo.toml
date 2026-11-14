@@ -1,0 +1,22 @@
+[package]
+name = "pulzr-protocol"
+description = "Pulzar protocol v1 message types, generated from the protocol repository's JSON Schema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regress = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+
+[build-dependencies]
+typify = "0.8"
+schemars = "0.8"
+serde_json = "1"
+prettyplease = "0.2"
+syn = "2"
+
+[dev-dependencies]
+jsonschema = { version = "0.61", default-features = false }

@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RegisterMap",
+  "description": "A register map (the Modbus part of a device package).",
+  "type": "object",
+  "required": [
+    "fields",
+    "model",
+    "schema"
+  ],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Field"
+      }
+    },
+    "heartbeat": {
+      "description": "Default heartbeat in seconds: a value is re-reported at least this often even when it has not moved past its deadband.",
+      "default": 300.0,
+      "type": "number",
+      "format": "double"
+    },
+    "max_gap": {
+      "description": "Fields closer together than this many registers are read in one request.",
+      "default": 4,
+      "type": "integer",
+      "format": "uint16",
+      "minimum": 0.0
+    },
+    "model": {
+      "description": "Device model, reported as the unit's `package` in `state`.",
+      "type": "string"
+    },
+    "poll_interval": {
+      "description": "Default poll interval in seconds for fields that do not set one.",
+      "default": 10.0,
+      "type": "number",
+      "format": "double"
+    },
+    "schema": {
+      "description": "Format version, 0 for now.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "ByteOrder": {
+      "description": "Order of the two bytes inside each 16 bit register.",
+      "oneOf": [
+        {
+          "description": "High byte first, as the Modbus standard says.",
+          "type": "string",
+          "enum": [
+            "big"
+          ]
+        },
+        {
+          "description": "Low byte first (some devices swap bytes inside the register).",
+          "type": "string",
+          "enum": [
+            "little"
+          ]
+        }
+      ]
+    },
+    "DataType": {
+      "description": "Data type of a field, as stored in the device.",
+      "oneOf": [
+        {
+          "description": "Unsigned 16 bit, one register.",
+          "type": "string",
+          "enum": [
+            "u16"
+          ]
+        },
+        {
+          "description": "Signed 16 bit, one register.",
+          "type": "string",
+          "enum": [
+            "i16"
+          ]
+        },
+        {
+          "description": "Unsigned 32 bit, two registers.",
+          "type": "string",
+          "enum": [
+            "u32"
+          ]
+        },
+        {
+          "description": "Signed 32 bit, two registers.",
+          "type": "string",
+          "enum": [
+            "i32"
+          ]
+        },
+        {
+          "description": "IEEE 754 single precision, two registers.",
+          "type": "string",
+          "enum": [
+            "f32"
+          ]
+        },
+        {
+          "description": "One coil or discrete input (function 1, 2), or a register that is non-zero (function 3, 4), or one bit of a register when `bit` is set.",
+          "type": "string",
+          "enum": [
+            "bool"
+          ]
+        }
+      ]
+    },
+    "Field": {
+      "description": "One value of the device.",
+      "type": "object",
+      "required": [
+        "address",
+        "function",
+        "id",
+        "type"
+      ],
+      "properties": {
+        "address": {
+          "description": "Zero-based address on the wire (register 40001 is address 0).",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "bit": {
+          "description": "Bit 0-15 of a register for `bool` fields on function 3 or 4. Read only.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "byte_order": {
+          "default": "big",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ByteOrder"
+            }
+          ]
+        },
+        "deadband": {
+          "description": "Report on change: a new value is sent when it differs from the last reported one by more than this (0 = any change). Booleans report any change.",
+          "default": 0.0,
+          "type": "number",
+          "format": "double"
+        },
+        "function": {
+          "description": "Read function code: 1 coils, 2 discrete inputs, 3 holding registers, 4 input registers.",
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "heartbeat": {
+          "description": "Seconds; the map's `heartbeat` when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "id": {
+          "description": "Field id as in the device package (`^[A-Za-z0-9_.-]{1,64}$`), the key in `up` readings.",
+          "type": "string"
+        },
+        "max": {
+          "description": "Largest engineering value a write accepts.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "min": {
+          "description": "Smallest engineering value a write accepts.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "offset": {
+          "default": 0.0,
+          "type": "number",
+          "format": "double"
+        },
+        "poll_interval": {
+          "description": "Seconds between polls; the map's `poll_interval` when absent.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "scale": {
+          "description": "Engineering value = raw * scale + offset.",
+          "default": 1.0,
+          "type": "number",
+          "format": "double"
+        },
+        "type": {
+          "$ref": "#/definitions/DataType"
+        },
+        "unit": {
+          "description": "UCUM unit, informational.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "word_order": {
+          "default": "big",
+          "allOf": [
+            {
+              "$ref": "#/definitions/WordOrder"
+            }
+          ]
+        },
+        "writable": {
+          "description": "May be set by `settings.set` and `register.write`. Only functions 1 and 3.",
+          "default": false,
+          "type": "boolean"
+        },
+        "write_function": {
+          "description": "Write function: 5 or 15 for coils, 6 or 16 for registers. Default 5 for coils, 6 for one register, 16 for two.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "WordOrder": {
+      "description": "Order of the 16 bit words of a 32 bit value, as they appear on the wire.",
+      "oneOf": [
+        {
+          "description": "High word first (AB CD).",
+          "type": "string",
+          "enum": [
+            "big"
+          ]
+        },
+        {
+          "description": "Low word first (CD AB).",
+          "type": "string",
+          "enum": [
+            "little"
+          ]
+        }
+      ]
+    }
+  }
+}

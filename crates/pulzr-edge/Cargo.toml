@@ -1,0 +1,26 @@
+[package]
+name = "pulzr-edge"
+description = "Pulzr edge daemon: speaks the Pulzar protocol for the devices behind a PulzarOS gateway (Modbus RTU and TCP first)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pulzr-protocol = { path = "../pulzr-protocol" }
+anyhow = "1"
+rumqttc = { version = "0.25", default-features = false, features = ["use-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+schemars = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs"] }
+tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu"] }
+tokio-serial = "5"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[dev-dependencies]
+tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu", "tcp-server"] }
+tempfile = "3"
+jsonschema = { version = "0.61", default-features = false }

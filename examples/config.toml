@@ -1,0 +1,42 @@
+gateway_eui = "b827ebfffe67f36b"
+# adapter = "edge-b827ebfffe67f36b"   # default; must match the certificate's name
+state_dir = "/var/lib/pulzr-edge"
+
+[broker]
+host = "mqtt.example.net"
+port = 8883
+ca = "/etc/pulzr-edge/ca.pem"
+cert = "/etc/pulzr-edge/client.pem"
+key = "/etc/pulzr-edge/client.key"
+
+[buffer]
+max_bytes = 8388608       # disk budget for messages waiting to be sent
+
+[log]
+level = "info"
+json = true
+
+# RS-485 through a USB adapter
+[[bus]]
+id = "rs485-0"
+kind = "rtu"
+serial = "/dev/ttyUSB0"
+baud = 9600
+parity = "none"
+timeout_ms = 1000
+retries = 2
+
+[[bus.unit]]
+id = 17
+map = "maps/generic-energy-meter.toml"
+
+# a device on the gateway's LAN
+[[bus]]
+id = "lan-0"
+kind = "tcp"
+address = "192.168.1.50:502"
+
+[[bus.unit]]
+id = 1
+map = "maps/generic-energy-meter.toml"
+offline_after = 3

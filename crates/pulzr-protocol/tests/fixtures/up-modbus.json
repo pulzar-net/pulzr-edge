@@ -1,0 +1,3 @@
+{ "v": 1, "seq": 77, "r": [ { "ts": 1793051880, "v": { "flow": 12.6, "pump.run": true } } ],
+  "rx": [ { "via": "gw:b827ebfffe67f36b", "ts": 1793051880.4, "time": "ntp" } ],
+  "link": { "modbus": { "function": 3, "address": 40001, "count": 4, "latency_ms": 38 } } }

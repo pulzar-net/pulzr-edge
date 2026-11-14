@@ -1,0 +1,290 @@
+//! The daemon's TOML configuration.
+
+use anyhow::{bail, Context, Result};
+use serde::Deserialize;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    /// The gateway's EUI-64, 16 lower case hex digits; part of every Modbus device key.
+    pub gateway_eui: String,
+    /// Adapter id in topics; `edge-<gateway_eui>` when absent. Must match the
+    /// certificate's name on the broker.
+    pub adapter: Option<String>,
+    /// Where the buffer and the `seq` counters live. Put it on storage that survives
+    /// a reboot and tolerates writes (not a small flash overlay).
+    #[serde(default = "default_state_dir")]
+    pub state_dir: PathBuf,
+    pub broker: Broker,
+    #[serde(default)]
+    pub buffer: BufferCfg,
+    #[serde(default)]
+    pub log: LogCfg,
+    #[serde(default, rename = "bus")]
+    pub buses: Vec<BusCfg>,
+}
+
+fn default_state_dir() -> PathBuf {
+    "/var/lib/pulzr-edge".into()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Broker {
+    pub host: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    /// TLS with a client certificate (default). `false` only for a local test broker.
+    #[serde(default = "yes")]
+    pub tls: bool,
+    /// PEM file with the CA that signed the broker's certificate.
+    pub ca: Option<PathBuf>,
+    /// PEM client certificate chain and private key naming this adapter.
+    pub cert: Option<PathBuf>,
+    pub key: Option<PathBuf>,
+    #[serde(default = "default_keep_alive")]
+    pub keep_alive_secs: u64,
+}
+
+fn default_port() -> u16 {
+    8883
+}
+fn yes() -> bool {
+    true
+}
+fn default_keep_alive() -> u64 {
+    30
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BufferCfg {
+    /// Disk budget for messages waiting to be sent. Oldest are dropped past it.
+    #[serde(default = "default_max_bytes")]
+    pub max_bytes: u64,
+}
+
+impl Default for BufferCfg {
+    fn default() -> Self {
+        Self {
+            max_bytes: default_max_bytes(),
+        }
+    }
+}
+
+fn default_max_bytes() -> u64 {
+    8 * 1024 * 1024
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogCfg {
+    /// A tracing filter, e.g. `info` or `pulzr_edge=debug`.
+    #[serde(default = "default_level")]
+    pub level: String,
+    /// One JSON object per line (default); `false` for human readable.
+    #[serde(default = "yes")]
+    pub json: bool,
+}
+
+impl Default for LogCfg {
+    fn default() -> Self {
+        Self {
+            level: default_level(),
+            json: true,
+        }
+    }
+}
+
+fn default_level() -> String {
+    "info".into()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BusCfg {
+    /// Bus name in device keys: lower case letters, digits and `-`, up to 32.
+    pub id: String,
+    #[serde(flatten)]
+    pub kind: BusKind,
+    /// Per request.
+    #[serde(default = "default_timeout")]
+    pub timeout_ms: u64,
+    /// Extra attempts after a timeout or I/O error.
+    #[serde(default = "default_retries")]
+    pub retries: u32,
+    /// Wait before the first retry; doubles each time.
+    #[serde(default = "default_backoff")]
+    pub backoff_ms: u64,
+    /// Quiet time after every request (slow RS-485 devices).
+    #[serde(default)]
+    pub turnaround_ms: u64,
+    #[serde(default, rename = "unit")]
+    pub units: Vec<UnitCfg>,
+}
+
+fn default_timeout() -> u64 {
+    1000
+}
+fn default_retries() -> u32 {
+    2
+}
+fn default_backoff() -> u64 {
+    200
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum BusKind {
+    /// Modbus RTU on a serial port.
+    Rtu {
+        serial: String,
+        #[serde(default = "default_baud")]
+        baud: u32,
+        /// `none`, `even` or `odd`.
+        #[serde(default = "default_parity")]
+        parity: String,
+        #[serde(default = "default_data_bits")]
+        data_bits: u8,
+        #[serde(default = "default_stop_bits")]
+        stop_bits: u8,
+    },
+    /// Modbus TCP: `host:port`.
+    Tcp { address: String },
+}
+
+fn default_baud() -> u32 {
+    9600
+}
+fn default_parity() -> String {
+    "none".into()
+}
+fn default_data_bits() -> u8 {
+    8
+}
+fn default_stop_bits() -> u8 {
+    1
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UnitCfg {
+    /// Modbus unit (slave) id, 1-247.
+    pub id: u8,
+    /// Register map file, relative to this config file.
+    pub map: PathBuf,
+    /// Consecutive failed polls before the unit is published offline.
+    #[serde(default = "default_offline_after")]
+    pub offline_after: u32,
+}
+
+fn default_offline_after() -> u32 {
+    3
+}
+
+impl Config {
+    pub fn load(path: &Path) -> Result<Self> {
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let cfg: Config =
+            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        cfg.validate()?;
+        Ok(cfg)
+    }
+
+    pub fn adapter(&self) -> String {
+        self.adapter
+            .clone()
+            .unwrap_or_else(|| format!("edge-{}", self.gateway_eui))
+    }
+
+    /// `modbus:<gateway eui>.<bus>.<unit>`
+    pub fn device_key(&self, bus: &str, unit: u8) -> String {
+        format!("modbus:{}.{bus}.{unit}", self.gateway_eui)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.gateway_eui.len() != 16
+            || !self
+                .gateway_eui
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            bail!("gateway_eui must be 16 lower case hex digits");
+        }
+        let adapter = self.adapter();
+        if adapter.is_empty() || adapter.contains(['/', '+', '#', '\0']) {
+            bail!("adapter {adapter:?} cannot be a topic level");
+        }
+        if self.broker.tls
+            && (self.broker.ca.is_none() || self.broker.cert.is_none() || self.broker.key.is_none())
+        {
+            bail!("broker.tls needs ca, cert and key (or tls = false for a local test broker)");
+        }
+        let mut seen = std::collections::HashSet::new();
+        for b in &self.buses {
+            if !seen.insert(&b.id) {
+                bail!("duplicate bus {}", b.id);
+            }
+            if b.units.is_empty() {
+                bail!("bus {} has no units", b.id);
+            }
+            for u in &b.units {
+                let key = self.device_key(&b.id, u.id);
+                // the protocol's own pattern decides what a valid key is
+                pulzr_protocol::DeviceKey::try_from(key.as_str())
+                    .map_err(|e| anyhow::anyhow!("bus {} unit {}: {e}", b.id, u.id))?;
+            }
+            let ids: std::collections::HashSet<_> = b.units.iter().map(|u| u.id).collect();
+            if ids.len() != b.units.len() {
+                bail!("bus {} repeats a unit id", b.id);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GOOD: &str = r#"
+gateway_eui = "b827ebfffe67f36b"
+[broker]
+host = "mqtt.example.net"
+ca = "ca.pem"
+cert = "c.pem"
+key = "k.pem"
+[[bus]]
+id = "rs485-0"
+kind = "rtu"
+serial = "/dev/ttyUSB0"
+[[bus.unit]]
+id = 17
+map = "maps/meter.toml"
+[[bus]]
+id = "lan-0"
+kind = "tcp"
+address = "192.168.1.50:502"
+[[bus.unit]]
+id = 1
+map = "maps/meter.toml"
+"#;
+
+    #[test]
+    fn parses_and_derives_keys() {
+        let c: Config = toml::from_str(GOOD).unwrap();
+        c.validate().unwrap();
+        assert_eq!(c.adapter(), "edge-b827ebfffe67f36b");
+        assert_eq!(
+            c.device_key("rs485-0", 17),
+            "modbus:b827ebfffe67f36b.rs485-0.17"
+        );
+        assert!(matches!(c.buses[0].kind, BusKind::Rtu { baud: 9600, .. }));
+    }
+
+    #[test]
+    fn rejects_bad_eui_unit_and_missing_tls() {
+        let bad = GOOD.replace("b827ebfffe67f36b", "B827EBFFFE67F36B");
+        assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
+        let bad = GOOD.replace("id = 17", "id = 0");
+        assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
+        let bad = GOOD.replace("key = \"k.pem\"\n", "");
+        assert!(toml::from_str::<Config>(&bad).unwrap().validate().is_err());
+    }
+}
