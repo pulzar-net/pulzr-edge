@@ -177,6 +177,25 @@ All of a command's writes are checked before the first one is made; any field th
 is not writable, unknown, out of range or of the wrong type refuses the whole
 command with `invalid`.
 
+## Simulator
+
+`pulzr-edge-sim` is a Modbus TCP device simulator for testing the whole Modbus path
+on a gateway without hardware. It reads the same register maps as the daemon and
+uses the daemon's own codec, so word order, byte order, scale and types match.
+
+```sh
+pulzr-edge-sim --listen 127.0.0.1:5020 --unit 17 --map examples/maps/generic-energy-meter.toml \
+               [--unit 18 --map other.toml]...
+```
+
+Point a `tcp` bus of the daemon at it. Readable fields follow a slow sine or random
+walk inside the field's `min`/`max` (else 0 to 100, widened to cross the deadband);
+bools toggle now and then. Writable fields (functions 1 and 3) accept functions 5, 6,
+15 and 16 and keep the value, so `settings.set` and `register.write` round-trip; any
+other write answers illegal data address. Every write is logged (`RUST_LOG=info`).
+Build it from source with `cargo build --release --features sim --bin pulzr-edge-sim`;
+releases publish `pulzr-edge-sim-<arch>-linux-musl` next to the daemon.
+
 ## Build and test
 
 ```sh

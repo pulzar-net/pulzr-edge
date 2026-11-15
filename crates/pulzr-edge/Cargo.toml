@@ -5,6 +5,23 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
+sim = ["tokio-modbus/tcp-server"]
+
+[[bin]]
+name = "pulzr-edge"
+path = "src/main.rs"
+
+[[bin]]
+name = "pulzr-edge-sim"
+path = "src/bin/pulzr-edge-sim.rs"
+required-features = ["sim"]
+
+[[test]]
+name = "sim"
+required-features = ["sim"]
+
 [dependencies]
 pulzr-protocol = { path = "../pulzr-protocol" }
 anyhow = "1"

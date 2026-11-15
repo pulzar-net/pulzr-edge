@@ -5,3 +5,5 @@ pub mod config;
 pub mod modbus;
 pub mod mqtt;
 pub mod outbox;
+#[cfg(feature = "sim")]
+pub mod sim;

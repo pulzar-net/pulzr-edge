@@ -11,6 +11,9 @@
 # no self-contained C runtime for it. ring compiles its portable C there; it
 # has no MIPS assembly, which costs speed, not correctness.
 #
+# pulzr-edge-sim, a Modbus TCP device simulator for testing without hardware,
+# is built and checked the same way and published beside the daemon.
+#
 # Every target's whole test suite runs under qemu-user before anything is
 # published, so a binary that cannot run (atomics, endianness, a syscall)
 # fails here and not on a gateway.
@@ -67,14 +70,18 @@ jobs:
           for target in aarch64-unknown-linux-musl mipsel-unknown-linux-musl; do
             std=()
             [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std)
-            cargo-zigbuild test --workspace --target "${target}" "${std[@]}"
+            cargo-zigbuild test --workspace --all-features --target "${target}" "${std[@]}"
             [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std=std,panic_abort)
-            cargo zigbuild --release -p pulzr-edge --target "${target}" "${std[@]}"
-            bin="target/${target}/release/pulzr-edge"
-            file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: not static" >&2; exit 1; }
-            runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
-            "${!runner}" "${bin}" --version
-            cp "${bin}" "dist/pulzr-edge-${target%%-*}-linux-musl"
+            for bin_name in pulzr-edge pulzr-edge-sim; do
+              feat=()
+              [ "${bin_name}" = pulzr-edge-sim ] && feat=(--features sim)
+              cargo zigbuild --release -p pulzr-edge --bin "${bin_name}" "${feat[@]}" --target "${target}" "${std[@]}"
+              bin="target/${target}/release/${bin_name}"
+              file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: ${bin_name} not static" >&2; exit 1; }
+              runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
+              "${!runner}" "${bin}" --version
+              cp "${bin}" "dist/${bin_name}-${target%%-*}-linux-musl"
+            done
           done
           (cd dist && sha256sum pulzr-edge-* > SHA256SUMS && cat SHA256SUMS)
 
