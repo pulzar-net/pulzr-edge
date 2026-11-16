@@ -2,11 +2,12 @@
 #
 #   aarch64-unknown-linux-musl   Pi 3, 4 and 5 (PulzarOS aarch64_cortex-a53/a72/a76)
 #   mipsel-unknown-linux-musl    RAK7268/7289, GL-SFT1200 (PulzarOS mipsel_24kc)
+#   mips-unknown-linux-musl      Dragino LPS8N (PulzarOS mips_24kc)
 #
 # PulzarOS stages them like ChirpStack's: its feed/pulzr-edge/fetch downloads
 # one by name from this release and checks it against SHA256SUMS.
 #
-# mipsel is a tier 3 target: no prebuilt std, so it builds std itself on a
+# mipsel and mips are tier 3 targets: no prebuilt std, so it builds std itself on a
 # pinned nightly (-Zbuild-std), and links against zig's musl because Rust ships
 # no self-contained C runtime for it. ring compiles its portable C there; it
 # has no MIPS assembly, which costs speed, not correctness.
@@ -64,14 +65,16 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUNNER: qemu-aarch64
           CARGO_TARGET_MIPSEL_UNKNOWN_LINUX_MUSL_RUNNER: qemu-mipsel
           CARGO_TARGET_MIPSEL_UNKNOWN_LINUX_MUSL_RUSTFLAGS: -C target-feature=+crt-static -C link-self-contained=no
+          CARGO_TARGET_MIPS_UNKNOWN_LINUX_MUSL_RUNNER: qemu-mips
+          CARGO_TARGET_MIPS_UNKNOWN_LINUX_MUSL_RUSTFLAGS: -C target-feature=+crt-static -C link-self-contained=no
         run: |
           set -euo pipefail
           mkdir -p dist
-          for target in aarch64-unknown-linux-musl mipsel-unknown-linux-musl; do
+          for target in aarch64-unknown-linux-musl mipsel-unknown-linux-musl mips-unknown-linux-musl; do
             std=()
-            [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std)
+            case "${target}" in mips*) std=(-Zbuild-std) ;; esac
             cargo-zigbuild test --workspace --all-features --target "${target}" "${std[@]}"
-            [ "${target}" = mipsel-unknown-linux-musl ] && std=(-Zbuild-std=std,panic_abort)
+            case "${target}" in mips*) std=(-Zbuild-std=std,panic_abort) ;; esac
             for bin_name in pulzr-edge pulzr-edge-sim; do
               feat=()
               [ "${bin_name}" = pulzr-edge-sim ] && feat=(--features sim)
