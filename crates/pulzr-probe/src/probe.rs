@@ -57,6 +57,20 @@ impl Prober for NoStacks {
     }
 }
 
+/// What pulzr-probe asks with no stack crate behind it: an OpenThread RCP,
+/// whose two Spinel reads are its own ([`crate::spinel`]). Every other kind
+/// is unavailable until its stack's probe is built in.
+pub struct Builtin;
+
+impl Prober for Builtin {
+    fn probe(&self, kind: ProbeKind, port: Port) -> Outcome {
+        match (kind, port) {
+            (ProbeKind::Spinel, Port::Serial(path)) => crate::spinel::probe(path),
+            _ => Outcome::Unavailable,
+        }
+    }
+}
+
 /// Asks each kind in turn until one answers. `Answered` if any did; else
 /// `NoAnswer` if any kind was actually tried, `Error` if every try failed to
 /// open, `Unavailable` if none could be tried.

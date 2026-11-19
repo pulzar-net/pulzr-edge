@@ -17,6 +17,8 @@ path = "src/main.rs"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# termios for the Spinel probe's serial port (src/spinel.rs); no code of its own.
+libc = "0.2"
 
 [dev-dependencies]
 jsonschema = { version = "0.61", default-features = false }

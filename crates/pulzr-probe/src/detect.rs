@@ -192,12 +192,10 @@ fn apply(d: &mut Detected, a: &Answer) {
     d.probe = Some(ProbeState::Ok);
 }
 
-/// Free, or unsupported for what the platform cannot run yet.
-fn readiness(protocol: Option<Protocol>) -> State {
-    match protocol {
-        Some(Protocol::Thread) => State::Unsupported,
-        _ => State::Free,
-    }
+/// Free: every protocol a radio can be named for has a stack to run it now
+/// (Thread's is OpenThread's border router, the pulzr-thread add-on).
+fn readiness(_protocol: Option<Protocol>) -> State {
+    State::Free
 }
 
 impl Context<'_> {

@@ -759,6 +759,7 @@ name = "pulzr-probe"
 version = "0.4.1"
 dependencies = [
  "jsonschema",
+ "libc",
  "serde",
  "serde_json",
  "tempfile",

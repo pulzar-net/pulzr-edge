@@ -9,7 +9,7 @@
 //! thing on the gateway that opens a serial port nobody has claimed.
 
 use pulzr_probe::detect::{parse_umdns, Context, Decisions, Paths, Report, Use};
-use pulzr_probe::probe::NoStacks;
+use pulzr_probe::probe::Builtin;
 use pulzr_probe::table::Table;
 use std::fs::{self, File};
 use std::io::Write;
@@ -101,7 +101,7 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
     let table = Table::builtin();
-    let prober = NoStacks;
+    let prober = Builtin;
     let _lock = lock(&a.paths)?;
     let mut decisions: Decisions = read_json(&a.paths.decisions);
     let previous: Report = read_json(&a.paths.report);

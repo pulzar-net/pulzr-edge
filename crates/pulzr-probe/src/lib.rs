@@ -11,5 +11,6 @@
 
 pub mod detect;
 pub mod probe;
+pub mod spinel;
 pub mod sysfs;
 pub mod table;
