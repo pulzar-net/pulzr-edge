@@ -1,0 +1,23 @@
+[package]
+name = "pulzr-probe"
+description = "Names the radios plugged into a PulzarOS gateway from sysfs and a table of known adapters, and probes only what it can name"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Small on purpose: it ships in every PulzrOS image, under 500 KB on flash. No
+# async runtime, no argument parser, no regex engine; serde_json is the only
+# weight. A protocol probe from a stack (zigbee-host, zwave-serial) comes in
+# behind a feature, so the image without one stays this size.
+
+[[bin]]
+name = "pulzr-probe"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+jsonschema = { version = "0.61", default-features = false }
+tempfile = "3"

@@ -45,6 +45,7 @@ Topics are `pulzr/a/<adapter>/d/<key>/{up,state,settings,cmd/res}` out and
 |---|---|
 | `crates/pulzr-protocol` | message types generated at build time from `schema/protocol.schema.json` with [typify](https://crates.io/crates/typify); round-trip and schema tests against the protocol repo's examples |
 | `crates/pulzr-edge` | the daemon: `config`, `buffer`, `outbox`, `mqtt`, `modbus/{regmap,codec,track,plan,bus}` |
+| `crates/pulzr-probe` | names the radios plugged into a gateway; `radios.json` is its table of known adapters |
 | `schema/register-map.schema.json` | JSON Schema of the register map, generated from the Rust types |
 | `examples/` | a config and one register map for a made-up energy meter |
 
@@ -196,6 +197,55 @@ other write answers illegal data address. Every write is logged (`RUST_LOG=info`
 Build it from source with `cargo build --release --features sim --bin pulzr-edge-sim`;
 releases publish `pulzr-edge-sim-<arch>-linux-musl` next to the daemon.
 
+## pulzr-probe
+
+What radios are plugged into this gateway, for PulzrOS's claim report and its
+retained MQTT state (`radios.detected`, pulzr-protocol's `detectedRadio`).
+PulzrOS ships it in every image, not as an add-on, so a gateway can say what it
+has before anything is installed; it has to stay under 500 KB (release.yml
+fails the build otherwise), which is why it has no async runtime and no
+argument parser.
+
+```sh
+pulzr-probe                       # scan: write /var/run/pulzr-probe/radios.json and print it
+pulzr-probe identify <radio id>   # a person's Identify: probe a port nobody could name
+pulzr-probe assign <radio id> modbus|none   # "This is a Modbus adapter", or undo it
+pulzr-probe check [radios.json]   # check a table
+```
+
+1. **Identity from sysfs**, never from the port's name: USB vendor and product
+   id, manufacturer, product and serial strings, interface number and physical
+   port path (`1-1.2`), for every `ttyUSB*`, `ttyACM*` and USB Bluetooth
+   controller (`hciN`). An onboard UART or Bluetooth chip is the board's to
+   declare and is not listed.
+2. **Named from `radios.json`.** A match on a unique USB id (ConBee II
+   `1cf1:0030`, a Z-Wave controller's `0658:0200`) or, for an id in `bridges`,
+   a product string that names a radio ("Home Assistant Connect ZBT-1",
+   "SLZB-07", "ConBee III"). A bridge chip (CP210x, CH9102, CH340, FTDI,
+   PL2303) is never named by its id: those sit inside the RS-485 adapters
+   Modbus sites use, and a probe frame on a live fieldbus is garbage on it.
+   `pulzr-probe check` (and the test suite, on the table that ships) refuses
+   a bridge entry with no product string, a product string under four
+   characters, and two entries that could both match one device. The table
+   grows by product strings, never by widening a match.
+3. **Probed only when named**, only with the probes its entry lists, never
+   while any process has the port open, never once a person has said it is a
+   Modbus adapter. An adapter nobody could name is `unidentified` with
+   `probe: not-allowed` until a person runs Identify on it from the console;
+   what Identify finds is kept in `/etc/pulzr-probe/decisions.json` with the
+   Modbus assignments. A radio still in the same place keeps its `since` and its
+   answer and is not asked again on the next hotplug event.
+
+The probe frames themselves come from the host stacks (`zigbee-host::probe` in
+pulzar-net/zigbee-bridge, `zwave-serial::probe` in pulzar-net/zwave-bridge)
+behind `probe::Prober`. This build has none yet (`NoStacks`): a named adapter
+is reported as the table says it ships (`protocol`, `ncp`) with
+`probe: unavailable`, and nothing is written to any port.
+
+Coordinators on the LAN (SLZB-06, UZG-01) come from mDNS: PulzrOS saves
+`ubus call umdns browse` to `/var/run/pulzr-probe/mdns.json`, and a service type
+in the table's `lan` list becomes a radio with `bus: lan`.
+
 ## Build and test
 
 ```sh
@@ -217,6 +267,9 @@ binaries with a `SHA256SUMS`:
 |---|---|---|
 | `pulzr-edge-aarch64-linux-musl` | `aarch64-unknown-linux-musl` | `aarch64_cortex-a53`, `-a72`, `-a76` (Pi 3, 4, 5) |
 | `pulzr-edge-mipsel-linux-musl` | `mipsel-unknown-linux-musl` | `mipsel_24kc` (RAK7268, RAK7289, GL-SFT1200) |
+| `pulzr-edge-mips-linux-musl` | `mips-unknown-linux-musl` | `mips_24kc` (Dragino LPS8N) |
+
+`pulzr-edge-sim-*` and `pulzr-probe-*` are published the same way.
 
 By hand, with [zig](https://ziglang.org) and
 [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):

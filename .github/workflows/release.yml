@@ -13,7 +13,9 @@
 # has no MIPS assembly, which costs speed, not correctness.
 #
 # pulzr-edge-sim, a Modbus TCP device simulator for testing without hardware,
-# is built and checked the same way and published beside the daemon.
+# and pulzr-probe, which names the radios plugged into a gateway and ships in
+# every image (so it is held to 500 KB), are built and checked the same way and
+# published beside the daemon.
 #
 # Every target's whole test suite runs under qemu-user before anything is
 # published, so a binary that cannot run (atomics, endianness, a syscall)
@@ -75,12 +77,19 @@ jobs:
             case "${target}" in mips*) std=(-Zbuild-std) ;; esac
             cargo-zigbuild test --workspace --all-features --target "${target}" "${std[@]}"
             case "${target}" in mips*) std=(-Zbuild-std=std,panic_abort) ;; esac
-            for bin_name in pulzr-edge pulzr-edge-sim; do
-              feat=()
+            for bin_name in pulzr-edge pulzr-edge-sim pulzr-probe; do
+              pkg=pulzr-edge feat=()
               [ "${bin_name}" = pulzr-edge-sim ] && feat=(--features sim)
-              cargo zigbuild --release -p pulzr-edge --bin "${bin_name}" "${feat[@]}" --target "${target}" "${std[@]}"
+              [ "${bin_name}" = pulzr-probe ] && pkg=pulzr-probe
+              cargo zigbuild --release -p "${pkg}" --bin "${bin_name}" "${feat[@]}" --target "${target}" "${std[@]}"
               bin="target/${target}/release/${bin_name}"
               file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: ${bin_name} not static" >&2; exit 1; }
+              # pulzr-probe is in every PulzrOS image: 500 KB on flash at most.
+              if [ "${bin_name}" = pulzr-probe ]; then
+                size="$(stat -c %s "${bin}")"
+                echo "${target}: pulzr-probe ${size} bytes"
+                [ "${size}" -le 512000 ] || { echo "${target}: pulzr-probe is ${size} bytes, over 500 KB" >&2; exit 1; }
+              fi
               runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
               "${!runner}" "${bin}" --version
               cp "${bin}" "dist/${bin_name}-${target%%-*}-linux-musl"
