@@ -43,7 +43,11 @@ pub fn fcs16(data: &[u8]) -> u16 {
     for &b in data {
         fcs ^= u16::from(b);
         for _ in 0..8 {
-            fcs = if fcs & 1 != 0 { (fcs >> 1) ^ 0x8408 } else { fcs >> 1 };
+            fcs = if fcs & 1 != 0 {
+                (fcs >> 1) ^ 0x8408
+            } else {
+                fcs >> 1
+            };
         }
     }
     fcs ^ 0xffff
@@ -129,17 +133,29 @@ fn value_is(frames: &[Vec<u8>], prop: u8) -> Option<Vec<u8>> {
 /// border router does not take).
 pub fn answer(frames: &[Vec<u8>]) -> Option<Answer> {
     let version = value_is(frames, PROP_NCP_VERSION)?;
-    let text = String::from_utf8_lossy(version.split(|&b| b == 0).next().unwrap_or(&[])).into_owned();
+    let text =
+        String::from_utf8_lossy(version.split(|&b| b == 0).next().unwrap_or(&[])).into_owned();
     if text.is_empty() {
         return None;
     }
     let rcp = value_is(frames, PROP_CAPS).map(|c| unpack_uints(&c).contains(&CAP_CONFIG_RADIO));
     // "OPENTHREAD/<version>; <platform>; <date>": the first two, short enough
     // for the report's firmware field.
-    let firmware: String = text.split("; ").take(2).collect::<Vec<_>>().join("; ").chars().take(64).collect();
+    let firmware: String = text
+        .split("; ")
+        .take(2)
+        .collect::<Vec<_>>()
+        .join("; ")
+        .chars()
+        .take(64)
+        .collect();
     Some(Answer {
         protocol: Some(Protocol::Thread),
-        ncp: Some(if rcp == Some(false) { "spinel-ncp" } else { "spinel" }),
+        ncp: Some(if rcp == Some(false) {
+            "spinel-ncp"
+        } else {
+            "spinel"
+        }),
         firmware: Some(firmware),
         ezsp: None,
         chip: text.split("; ").nth(1).map(str::to_owned),
@@ -208,7 +224,9 @@ pub fn probe(path: &Path) -> Outcome {
                 Err(_) => break,
             }
             let frames = decode(&got);
-            if value_is(&frames, PROP_NCP_VERSION).is_some() && value_is(&frames, PROP_CAPS).is_some() {
+            if value_is(&frames, PROP_NCP_VERSION).is_some()
+                && value_is(&frames, PROP_CAPS).is_some()
+            {
                 break;
             }
         }
@@ -216,7 +234,11 @@ pub fn probe(path: &Path) -> Outcome {
             return Outcome::Answered(a);
         }
     }
-    if tried { Outcome::NoAnswer } else { Outcome::Unavailable }
+    if tried {
+        Outcome::NoAnswer
+    } else {
+        Outcome::Unavailable
+    }
 }
 
 #[cfg(test)]
@@ -231,7 +253,17 @@ mod tests {
 
     #[test]
     fn frames_round_trip_with_escapes() {
-        let payload = [HEADER, CMD_PROP_VALUE_IS, PROP_NCP_VERSION, 0x7e, 0x7d, 0x11, 0x13, 0xf8, b'x'];
+        let payload = [
+            HEADER,
+            CMD_PROP_VALUE_IS,
+            PROP_NCP_VERSION,
+            0x7e,
+            0x7d,
+            0x11,
+            0x13,
+            0xf8,
+            b'x',
+        ];
         let wire = encode(&payload);
         assert!(!wire[1..wire.len() - 1].contains(&FLAG));
         assert_eq!(decode(&wire), vec![payload.to_vec()]);
@@ -259,7 +291,10 @@ mod tests {
         let a = answer(&[version.clone(), caps]).expect("answered");
         assert_eq!(a.protocol, Some(Protocol::Thread));
         assert_eq!(a.ncp, Some("spinel"));
-        assert_eq!(a.firmware.as_deref(), Some("SL-OPENTHREAD/2.4.4.0_GitHub-7074a43e4; EFR32"));
+        assert_eq!(
+            a.firmware.as_deref(),
+            Some("SL-OPENTHREAD/2.4.4.0_GitHub-7074a43e4; EFR32")
+        );
         assert_eq!(a.chip.as_deref(), Some("EFR32"));
         assert_eq!(unpack_uints(&[5, 34, 0x80, 0x04]), vec![5, 34, 512]);
 
