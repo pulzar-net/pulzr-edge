@@ -13,6 +13,7 @@
     { "vid": "067b", "pid": "2303", "chip": "PL2303" },
     { "vid": "067b", "pid": "23a3", "chip": "PL2303GC" },
     { "vid": "303a", "pid": "1001", "chip": "ESP32 USB serial" },
+    { "vid": "1915", "pid": "cafe", "chip": "nRF52840 USB CDC" },
     { "vid": "303a", "pid": "4001", "chip": "ESP32 USB serial" }
   ],
   "adapters": [
