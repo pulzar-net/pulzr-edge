@@ -202,9 +202,11 @@ releases publish `pulzr-edge-sim-<arch>-linux-musl` next to the daemon.
 What radios are plugged into this gateway, for PulzrOS's claim report and its
 retained MQTT state (`radios.detected`, pulzr-protocol's `detectedRadio`).
 PulzrOS ships it in every image, not as an add-on, so a gateway can say what it
-has before anything is installed; it has to stay under 500 KB (release.yml
-fails the build otherwise), which is why it has no async runtime and no
-argument parser.
+has before anything is installed; it has to stay under 500 KB on flash
+(squashfs, so xz-compressed: about 200 KB on aarch64; release.yml fails the
+build otherwise), which is why it has no async runtime and no argument parser.
+The binary itself is about 490 KB on aarch64 and 740 KB on mipsel, most of it
+std's backtrace support and musl.
 
 ```sh
 pulzr-probe                       # scan: write /var/run/pulzr-probe/radios.json and print it
