@@ -11,7 +11,7 @@ default = ["zigbee", "zwave"]
 sim = ["tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
 # zigbee-bridge's stack: EmberZNet, Z-Stack and deCONZ dongles.
-zigbee = ["dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-types"]
+zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-types"]
 # Z-Wave Serial API controllers as a radio module (`pulzr-edge radio serve`),
 # on zwave-bridge's host stack.
 zwave = ["dep:zwave-host", "dep:zwave-security", "dep:zwave-serial", "dep:sha2", "tokio/process"]
@@ -37,7 +37,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs", "net", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs", "net", "io-util", "process"] }
 tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu"] }
 tokio-serial = "5"
 toml = "0.8"

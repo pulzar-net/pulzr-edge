@@ -311,6 +311,18 @@
       },
       "additionalProperties": false
     },
+    "zigbeeOta": {
+      "type": "object",
+      "required": ["url", "sha256"],
+      "properties": {
+        "url": { "type": "string", "pattern": "^https://", "maxLength": 2048 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "file_version": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "size": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    },
     "radioId": { "type": "string", "pattern": "^(usb|uart|lan)-[a-z0-9._-]{1,96}$" },
     "detectedRadio": {
       "type": "object",
@@ -413,7 +425,8 @@
       "allOf": [
         { "if": { "properties": { "name": { "const": "zigbee.zcl" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZcl" } }, "required": ["params"] } },
         { "if": { "properties": { "name": { "const": "zigbee.zdo" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZdo" } }, "required": ["params"] } },
-        { "if": { "properties": { "name": { "const": "zigbee.wait" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeWait" } }, "required": ["params"] } }
+        { "if": { "properties": { "name": { "const": "zigbee.wait" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeWait" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "zigbee.ota" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeOta" } }, "required": ["params"] } }
       ],
       "additionalProperties": false
     },

@@ -181,6 +181,15 @@ impl RadioCtx {
 
     /// A file of the module's own beside the radio's file
     /// (`<radio id>.<name>`), kept across upgrades with it: a device store.
+    /// A path of the module's own in the run directory (tmpfs, gone at
+    /// reboot): `<run>/radio/<radio id>.<name>`, for downloads.
+    pub fn scratch(&self, name: &str) -> PathBuf {
+        self.paths
+            .run
+            .join("radio")
+            .join(format!("{}.{name}", self.radio))
+    }
+
     pub fn file(&self, name: &str) -> PathBuf {
         self.paths.radios.join(format!("{}.{name}", self.radio))
     }

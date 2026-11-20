@@ -268,9 +268,13 @@ impl Zigbee {
             Some(a) => a,
             None => self.connect().await?,
         };
+        let ota_dir = self.ctx.scratch("ota");
+        let _ = std::fs::create_dir_all(&ota_dir);
+        self.commands.set_ota_dir(ota_dir.clone());
         let config = HostConfig {
             store_path: Some(self.store_path()),
             join,
+            ota_dir: Some(ota_dir),
             ..HostConfig::default()
         };
         let restoring = matches!(mode, StartMode::Restore(_));
@@ -615,6 +619,24 @@ impl Zigbee {
                 HostEvent::Frame { ieee, link, frame } => {
                     let body = up_body(&host, ieee, &link, &frame, &via);
                     self.ctx.out.up_body(&key(ieee), body);
+                }
+                HostEvent::OtaProgress { ieee, percent } => {
+                    self.ctx.out.event(
+                        &key(ieee),
+                        "ota.progress",
+                        json!({ "percent": percent }),
+                        None,
+                    );
+                }
+                HostEvent::OtaFinished {
+                    ieee,
+                    from,
+                    to,
+                    success,
+                    status,
+                } => {
+                    self.commands
+                        .ota_finished(&self.ctx.out, ieee, from, to, success, status);
                 }
                 HostEvent::ChannelChanged { network } => {
                     self.ctx.out.event(

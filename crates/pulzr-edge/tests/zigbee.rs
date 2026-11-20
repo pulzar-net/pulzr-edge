@@ -334,3 +334,82 @@ async fn a_backup_restores_onto_another_dongle() {
             .unwrap()
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_device_types_firmware_image_reaches_the_device() {
+    use sha2::{Digest, Sha256};
+    // file:// stands in for the device type's https URL.
+    std::env::set_var("PULZR_EDGE_OTA_FILE_URLS", "1");
+    let mut rig = rig(SimNcp::Ezsp { protocol: 13 }).await;
+    rig.call(
+        "form",
+        json!({ "network": NETWORK, "channel": 15, "pan_id": "1a62",
+                "ext_pan_id": "dddddddddddddddd", "network_key": "01030507090b0d0f00020406080a0c0d" }),
+    )
+    .await;
+    rig.call("permit", json!({ "seconds": 60 })).await;
+    rig.wait(&format!("zigbee:{PLUG}/state"), |v| {
+        v["interview"]["zigbee"]["complete"] == true
+    })
+    .await;
+
+    let image = zigbee_host::ota::build(0x1234, 0x0001, 0x0200_0000, &[0x5A; 900]);
+    let file = rig._dir.path().join("plug-2.0.ota");
+    std::fs::write(&file, &image).unwrap();
+    let url = format!("file://{}", file.display());
+    let sha = hex::encode(Sha256::digest(&image));
+
+    // A hash that does not match is never offered.
+    rig.command(
+        PLUG,
+        "o0000001-bad",
+        "zigbee.ota",
+        json!({ "url": url, "sha256": "0".repeat(64) }),
+    );
+    let bad = rig.wait("/cmd/res", |v| v["id"] == "o0000001-bad").await;
+    assert_eq!(bad["status"], "failed", "{bad}");
+    // Plain http is refused outright.
+    rig.command(
+        PLUG,
+        "o0000002-http",
+        "zigbee.ota",
+        json!({ "url": "http://example.com/x.ota", "sha256": sha }),
+    );
+    let http = rig.wait("/cmd/res", |v| v["id"] == "o0000002-http").await;
+    assert_eq!(http["status"], "refused");
+
+    rig.command(
+        PLUG,
+        "o0000003-good",
+        "zigbee.ota",
+        json!({ "url": url, "sha256": sha, "file_version": 0x0200_0000 }),
+    );
+    rig.wait("/cmd/res", |v| {
+        v["id"] == "o0000003-good" && v["status"] == "delivered"
+    })
+    .await;
+    rig.wait(&format!("zigbee:{PLUG}/event"), |v| {
+        v["name"] == "ota.progress" && v["data"]["percent"] == 100
+    })
+    .await;
+    let done = rig
+        .wait("/cmd/res", |v| {
+            v["id"] == "o0000003-good" && v["status"] != "delivered"
+        })
+        .await;
+    assert_eq!(done["status"], "ok", "{done}");
+    assert_eq!(done["data"]["from"], 0x0100_0000);
+    assert_eq!(done["data"]["to"], 0x0200_0000);
+    let mut firmware = rig.sim.snapshot().firmware[0].1.clone();
+    for _ in 0..50 {
+        if firmware.file_version == 0x0200_0000 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        firmware = rig.sim.snapshot().firmware[0].1.clone();
+    }
+    assert_eq!(
+        firmware.image, image,
+        "the device received the image byte for byte"
+    );
+}
