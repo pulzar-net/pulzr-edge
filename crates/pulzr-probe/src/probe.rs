@@ -57,8 +57,9 @@ impl Prober for NoStacks {
     }
 }
 
-/// What pulzr-probe asks with no stack crate behind it: an OpenThread RCP,
-/// whose two Spinel reads are its own ([`crate::spinel`]). Every other kind
+/// What this build can ask: an OpenThread RCP, whose two Spinel reads are
+/// pulzr-probe's own ([`crate::spinel`]), and a Z-Wave controller through
+/// zwave-bridge's `zwave_serial::probe` (feature `zwave`). Every other kind
 /// is unavailable until its stack's probe is built in.
 pub struct Builtin;
 
@@ -66,8 +67,42 @@ impl Prober for Builtin {
     fn probe(&self, kind: ProbeKind, port: Port) -> Outcome {
         match (kind, port) {
             (ProbeKind::Spinel, Port::Serial(path)) => crate::spinel::probe(path),
+            #[cfg(feature = "zwave")]
+            (ProbeKind::ZwaveSerial, Port::Serial(path)) => match path.to_str() {
+                Some(path) => zwave(path),
+                None => Outcome::Error("device path is not UTF-8".into()),
+            },
+            #[cfg(feature = "zwave")]
+            (ProbeKind::ZwaveSerial, Port::Tcp(host, port)) => {
+                zwave(&format!("tcp://{host}:{port}"))
+            }
             _ => Outcome::Unavailable,
         }
+    }
+}
+
+/// NAK, then GET_SERIAL_API_CAPABILITIES, and the controller reads only if
+/// that answered like a controller; nothing that writes NVM, resets or forms
+/// a network. Bounded at 2.9 s by zwave-serial, port closed on return.
+#[cfg(feature = "zwave")]
+fn zwave(path: &str) -> Outcome {
+    match zwave_serial::probe_blocking(path) {
+        Ok(Some(id)) => Outcome::Answered(Answer {
+            protocol: Some(Protocol::Zwave),
+            ncp: Some("zwave-serial"),
+            firmware: Some(id.firmware.clone()),
+            ezsp: None,
+            chip: id.series.map(|s| {
+                match s {
+                    zwave_serial::Series::S500 => "Z-Wave 500 series",
+                    zwave_serial::Series::S700 => "Z-Wave 700 series",
+                    zwave_serial::Series::S800 => "Z-Wave 800 series",
+                }
+                .to_string()
+            }),
+        }),
+        Ok(None) => Outcome::NoAnswer,
+        Err(e) => Outcome::Error(e.to_string()),
     }
 }
 

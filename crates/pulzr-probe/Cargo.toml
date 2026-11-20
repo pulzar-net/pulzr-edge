@@ -5,10 +5,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-# Small on purpose: it ships in every PulzrOS image, under 500 KB on flash. No
-# async runtime, no argument parser, no regex engine; serde_json is the only
-# weight. A protocol probe from a stack (zigbee-host, zwave-serial) comes in
-# behind a feature, so the image without one stays this size.
+# Small on purpose: it ships in every PulzrOS image, under 500 KB on flash
+# (xz, as squashfs stores it; the release gates on it). No argument parser, no
+# regex engine. A protocol probe from a stack (zigbee-host, zwave-serial) comes
+# in behind a feature; the Z-Wave one is the only async code, a current-thread
+# runtime that lives for one probe.
 
 [[bin]]
 name = "pulzr-probe"
@@ -19,6 +20,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # termios for the Spinel probe's serial port (src/spinel.rs); no code of its own.
 libc = "0.2"
+# The Z-Wave controller probe: zwave-bridge's Serial API layer only, no host
+# stack. It brings a current-thread tokio for the length of one probe.
+zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.1.0", optional = true }
+
+[features]
+default = ["zwave"]
+zwave = ["dep:zwave-serial"]
 
 [dev-dependencies]
 jsonschema = { version = "0.61", default-features = false }
