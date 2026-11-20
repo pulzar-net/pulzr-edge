@@ -2410,7 +2410,7 @@ dependencies = [
  "zigbee-zdo",
  "zwave-host",
  "zwave-security",
- "zwave-serial 0.2.0",
+ "zwave-serial",
  "zwave-sim",
 ]
 
@@ -2426,7 +2426,7 @@ dependencies = [
  "tokio",
  "zigbee-host",
  "zigbee-sim",
- "zwave-serial 0.1.0",
+ "zwave-serial",
 ]
 
 [[package]]
@@ -4736,8 +4736,9 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zwave-cc"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "455450c5ed0ac930db43db116c3502d1b070d82c36af5912d36ff996aab41cff"
 dependencies = [
  "crc",
  "serde",
@@ -4747,8 +4748,9 @@ dependencies = [
 
 [[package]]
 name = "zwave-host"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9b7d131fa83b86f18d8a690610ff068f73021559c5fccada53ba4cd884f7925"
 dependencies = [
  "hex",
  "ihex",
@@ -4760,13 +4762,14 @@ dependencies = [
  "tracing",
  "zwave-cc",
  "zwave-security",
- "zwave-serial 0.2.0",
+ "zwave-serial",
 ]
 
 [[package]]
 name = "zwave-security"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c5e1315cc70727ed06fbd828d0d35cd9071193efbfb04e92ea5911d6f1b86e8"
 dependencies = [
  "aes",
  "cbc-mac",
@@ -4783,22 +4786,9 @@ dependencies = [
 
 [[package]]
 name = "zwave-serial"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.1.0#467e5154ca3179885a14b7edf9f6cbbca6efcfb1"
-dependencies = [
- "bytes",
- "futures-util",
- "thiserror",
- "tokio",
- "tokio-serial",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "zwave-serial"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7aad817ad06d5971c81d302a56bea77a1ede788472050702fbb216e0be65f4"
 dependencies = [
  "bytes",
  "futures-util",
@@ -4811,8 +4801,9 @@ dependencies = [
 
 [[package]]
 name = "zwave-sim"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c442a38355bfac3a594161db818bfcfe8b2460407fb48cf10943e59d268b148"
 dependencies = [
  "bytes",
  "futures-util",
@@ -4822,5 +4813,5 @@ dependencies = [
  "tracing-subscriber",
  "zwave-cc",
  "zwave-security",
- "zwave-serial 0.2.0",
+ "zwave-serial",
 ]

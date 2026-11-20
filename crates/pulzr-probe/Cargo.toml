@@ -22,7 +22,7 @@ serde_json = "1"
 libc = "0.2"
 # The Z-Wave controller probe: zwave-bridge's Serial API layer only, no host
 # stack. It brings a current-thread tokio for the length of one probe.
-zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.1.0", optional = true }
+zwave-serial = { version = "0.2.1", optional = true }
 # The Zigbee coordinator probe (EZSP, ZNP, deCONZ): zigbee-bridge's clients only, no host.
 zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", default-features = false, features = ["probe", "serial"], optional = true }
 # zigbee-host's probe is async; it runs on a current-thread runtime that lives
