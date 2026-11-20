@@ -23,16 +23,22 @@ pub struct Config {
     #[serde(default, rename = "bus")]
     pub buses: Vec<BusCfg>,
     /// Bluetooth LE (`pulzr-edge ble`); absent or off, nothing runs.
-    #[cfg(target_endian = "little")]
+    #[cfg(all(target_endian = "little", feature = "ble"))]
     #[serde(default)]
     pub ble: Option<crate::ble::BleCfg>,
-    /// Read and ignored where there is no Bluetooth support (big-endian).
-    #[cfg(not(target_endian = "little"))]
+    /// Read and ignored where this build has no Bluetooth (big-endian, or a
+    /// module's own binary).
+    #[cfg(not(all(target_endian = "little", feature = "ble")))]
     #[serde(default)]
     pub ble: Option<toml::Value>,
     /// IP cameras on the LAN (`pulzr-edge camera`).
+    #[cfg(feature = "camera")]
     #[serde(default, rename = "camera")]
     pub cameras: Vec<crate::camera::CameraCfg>,
+    /// Read and ignored where this build has no cameras.
+    #[cfg(not(feature = "camera"))]
+    #[serde(default, rename = "camera")]
+    pub cameras: Vec<toml::Value>,
     /// Where device firmware may be fetched from.
     #[serde(default)]
     pub firmware: FirmwareCfg,
@@ -279,15 +285,18 @@ impl Config {
         if b.tls && b.ca.is_none() {
             bail!("broker.tls needs ca (or tls = false for a local test broker)");
         }
-        #[cfg(target_endian = "little")]
+        #[cfg(all(target_endian = "little", feature = "ble"))]
         if let Some(b) = &self.ble {
             b.validate()?;
         }
-        let mut keys = std::collections::HashSet::new();
-        for c in &self.cameras {
-            c.validate()?;
-            if !keys.insert(c.key()) {
-                bail!("camera {} is listed twice", c.mac);
+        #[cfg(feature = "camera")]
+        {
+            let mut keys = std::collections::HashSet::new();
+            for c in &self.cameras {
+                c.validate()?;
+                if !keys.insert(c.key()) {
+                    bail!("camera {} is listed twice", c.mac);
+                }
             }
         }
         let mut seen = std::collections::HashSet::new();

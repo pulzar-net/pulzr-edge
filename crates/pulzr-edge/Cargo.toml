@@ -6,9 +6,21 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["zigbee", "zwave", "matter"]
+# Every module, for development and the tests. A gateway gets one binary per
+# module instead, each built with only its own feature, so it carries only
+# what it runs: pulzr-edge (Modbus), pulzr-edge-zigbee, pulzr-edge-zwave,
+# pulzr-edge-matter, pulzr-edge-ble, pulzr-edge-camera (release.yml and
+# PulzrOS's sdk/packages/pulzr-edge). Every one keeps the radio control
+# client, so any of them can talk to a running module.
+default = ["modbus", "ble", "camera", "zigbee", "zwave", "matter"]
+# Modbus RTU and TCP buses (`pulzr-edge <config>`).
+modbus = ["dep:tokio-modbus", "dep:tokio-serial"]
+# Bluetooth LE (`pulzr-edge ble`); little-endian machines only (bt-hci).
+ble = ["dep:bluetooth-adv", "dep:bluetooth-host"]
+# IP cameras (`pulzr-edge camera`).
+camera = ["dep:des", "dep:quick-xml", "dep:reqwest"]
 # The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
-sim = ["tokio-modbus/tcp-server"]
+sim = ["modbus", "tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
 # zigbee-bridge's stack: EmberZNet, Z-Stack and deCONZ dongles.
 zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-types"]
@@ -17,7 +29,7 @@ zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", 
 zwave = ["dep:zwave-host", "dep:zwave-security", "dep:zwave-serial", "dep:sha2", "tokio/process"]
 # The gateway's controller in its organization's Matter fabric, as the radio
 # `matter`, on matter-bridge's controller.
-matter = ["dep:matter-controller", "dep:matter-model"]
+matter = ["dep:matter-controller", "dep:matter-model", "dep:reqwest"]
 
 [[bin]]
 name = "pulzr-edge"
@@ -32,6 +44,14 @@ required-features = ["sim"]
 name = "sim"
 required-features = ["sim"]
 
+[[test]]
+name = "modbus_tcp"
+required-features = ["modbus"]
+
+[[test]]
+name = "ble"
+required-features = ["ble"]
+
 [dependencies]
 pulzr-protocol = { path = "../pulzr-protocol" }
 anyhow = "1"
@@ -41,8 +61,8 @@ schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs", "net", "io-util", "process"] }
-tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu"] }
-tokio-serial = "5"
+tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu"], optional = true }
+tokio-serial = { version = "5", optional = true }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -58,17 +78,17 @@ matter-controller = { git = "https://github.com/pulzar-net/matter-bridge", rev =
 matter-model = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", optional = true }
 base64 = "0.22"
 # IP cameras (`pulzr-edge camera`): their settings API is plain HTTP on the LAN.
-des = "0.9"
-quick-xml = "0.42"
-reqwest = { version = "0.13", default-features = false }
+des = { version = "0.9", optional = true }
+quick-xml = { version = "0.42", optional = true }
+reqwest = { version = "0.13", default-features = false, optional = true }
 hex = "0.4"
 sha2 = { version = "0.11", optional = true }
 
 # Bluetooth (`pulzr-edge ble`). bt-hci, which encodes HCI, builds for
 # little-endian machines only, so big-endian boards (mips) have no `ble`.
 [target.'cfg(target_endian = "little")'.dependencies]
-bluetooth-adv = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0" }
-bluetooth-host = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0" }
+bluetooth-adv = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0", optional = true }
+bluetooth-host = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0", optional = true }
 
 [dev-dependencies]
 sha2 = "0.11"

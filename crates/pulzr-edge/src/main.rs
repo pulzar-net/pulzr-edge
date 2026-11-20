@@ -1,12 +1,15 @@
+// A module's own binary (pulzr-edge-zigbee and the rest) is built with that
+// module's feature alone, so the imports and helpers of the processes it does
+// not run go unused there; the default build, which CI lints, has them all.
+#![cfg_attr(
+    not(all(feature = "modbus", feature = "camera")),
+    allow(unused_imports, dead_code)
+)]
+
 use anyhow::{Context, Result};
-use pulzr_edge::{
-    config::{BusKind, Config},
-    modbus::{bus, regmap::RegisterMap},
-    mqtt,
-    outbox::Outbox,
-};
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::{mpsc, watch};
+use pulzr_edge::{config::Config, mqtt, outbox::Outbox};
+use std::{path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::watch;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,6 +46,16 @@ async fn main() -> Result<()> {
     if ble {
         return run_ble(cfg).await;
     }
+    run_modbus(cfg, path).await
+}
+
+/// `pulzr-edge <config>`: the Modbus buses.
+#[cfg(feature = "modbus")]
+async fn run_modbus(cfg: Config, path: PathBuf) -> Result<()> {
+    use pulzr_edge::config::BusKind;
+    use pulzr_edge::modbus::{bus, regmap::RegisterMap};
+    use std::collections::HashMap;
+    use tokio::sync::mpsc;
 
     let adapter = cfg.adapter();
     let out = Outbox::open(
@@ -136,6 +149,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "modbus"))]
+async fn run_modbus(_cfg: Config, _path: PathBuf) -> Result<()> {
+    anyhow::bail!("this pulzr-edge runs no Modbus buses; that is pulzr-edge's own binary")
+}
+
 fn usage() -> ! {
     eprintln!(
         "usage: pulzr-edge <config.toml>                       Modbus
@@ -204,12 +222,12 @@ async fn radio(args: Vec<String>) -> Result<()> {
 /// `pulzr-edge ble`: the gateway's Bluetooth controller, as its own process
 /// with its own buffer and MQTT session (client id `<adapter>-ble`) under
 /// the same adapter and broker login.
-#[cfg(not(target_endian = "little"))]
+#[cfg(not(all(target_endian = "little", feature = "ble")))]
 async fn run_ble(_cfg: Config) -> Result<()> {
-    anyhow::bail!("Bluetooth is not supported on big-endian machines")
+    anyhow::bail!("this pulzr-edge has no Bluetooth (pulzr-edge-ble has it, on little-endian machines)")
 }
 
-#[cfg(target_endian = "little")]
+#[cfg(all(target_endian = "little", feature = "ble"))]
 async fn run_ble(cfg: Config) -> Result<()> {
     let Some(ble) = cfg.ble.clone().filter(|b| b.enabled) else {
         tracing::warn!("Bluetooth is off ([ble] enabled = false); nothing to do");
@@ -251,8 +269,14 @@ async fn run_ble(cfg: Config) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "camera"))]
+async fn run_camera(_cfg: Config) -> Result<()> {
+    anyhow::bail!("this pulzr-edge has no camera support (pulzr-edge-camera has it)")
+}
+
 /// `pulzr-edge camera`: the LAN's IP cameras, as their own process with
 /// their own buffer and MQTT session (client id `<adapter>-camera`).
+#[cfg(feature = "camera")]
 async fn run_camera(cfg: Config) -> Result<()> {
     let filter =
         tracing_subscriber::EnvFilter::try_new(&cfg.log.level).unwrap_or_else(|_| "info".into());

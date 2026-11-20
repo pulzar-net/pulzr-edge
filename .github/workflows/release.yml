@@ -77,30 +77,41 @@ jobs:
             case "${target}" in mips*) std=(-Zbuild-std) ;; esac
             cargo-zigbuild test --workspace --all-features --target "${target}" "${std[@]}"
             case "${target}" in mips*) std=(-Zbuild-std=std,panic_abort) ;; esac
-            for bin_name in pulzr-edge pulzr-edge-sim pulzr-probe; do
-              pkg=pulzr-edge feat=()
-              [ "${bin_name}" = pulzr-edge-sim ] && feat=(--features sim)
-              [ "${bin_name}" = pulzr-probe ] && pkg=pulzr-probe
+            # One binary per module, each the pulzr-edge bin built with only its
+            # module's feature, so a gateway carries only what it runs (PulzrOS
+            # ships each in its capability's add-on). <dist name> <package>
+            # <bin> <features>. Bluetooth is little-endian only (bt-hci).
+            builds="pulzr-edge pulzr-edge pulzr-edge modbus
+          pulzr-edge-zigbee pulzr-edge pulzr-edge zigbee
+          pulzr-edge-zwave pulzr-edge pulzr-edge zwave
+          pulzr-edge-matter pulzr-edge pulzr-edge matter
+          pulzr-edge-ble pulzr-edge pulzr-edge ble
+          pulzr-edge-camera pulzr-edge pulzr-edge camera
+          pulzr-edge-sim pulzr-edge pulzr-edge-sim sim
+          pulzr-probe pulzr-probe pulzr-probe -"
+            while read -r name pkg bin_name features; do
+              case "${name}:${target}" in pulzr-edge-ble:mips-*) continue ;; esac
+              feat=()
+              [ "${features}" = - ] || feat=(--no-default-features --features "${features}")
               cargo zigbuild --release -p "${pkg}" --bin "${bin_name}" "${feat[@]}" --target "${target}" "${std[@]}"
               bin="target/${target}/release/${bin_name}"
-              file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: ${bin_name} not static" >&2; exit 1; }
-              # pulzr-probe is in every PulzrOS image: 500 KB on flash at most.
-              # Flash is squashfs, which is xz, so that is what is measured;
-              # most of the raw size is std's backtrace support and musl,
-              # which stable Rust cannot leave out.
+              file "${bin}" | grep -q 'statically linked' || { file "${bin}"; echo "${target}: ${name} not static" >&2; exit 1; }
+              # Flash is squashfs (xz), an add-on's overlay takes the raw size:
+              # both are said, because they decide which boards can take an
+              # add-on. pulzr-probe is in every image: 500 KB on flash at most;
+              # most of its raw size is std's backtrace support and musl, which
+              # stable Rust cannot leave out.
               raw="$(stat -c %s "${bin}")"
               flash="$(xz -9e -c "${bin}" | wc -c)"
-              # Every binary's size is said, because an add-on's installed size
-              # decides which boards can take it (pulzr-edge carries every
-              # radio module); pulzr-probe's is also held to its budget.
-              echo "${target}: ${bin_name} ${raw} bytes, ${flash} on flash"
-              if [ "${bin_name}" = pulzr-probe ]; then
+              echo "${target}: ${name} ${raw} bytes, ${flash} on flash"
+              if [ "${name}" = pulzr-probe ]; then
                 [ "${flash}" -le 512000 ] || { echo "${target}: pulzr-probe is ${flash} bytes on flash, over 500 KB" >&2; exit 1; }
               fi
               runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
               "${!runner}" "${bin}" --version
-              cp "${bin}" "dist/${bin_name}-${target%%-*}-linux-musl"
-            done
+              # Copied out at once: the next build of the same bin replaces it.
+              cp "${bin}" "dist/${name}-${target%%-*}-linux-musl"
+            done <<<"${builds}"
           done
           (cd dist && sha256sum pulzr-* > SHA256SUMS && cat SHA256SUMS)
 
