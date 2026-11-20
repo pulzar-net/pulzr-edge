@@ -23,8 +23,13 @@ pub struct Config {
     #[serde(default, rename = "bus")]
     pub buses: Vec<BusCfg>,
     /// Bluetooth LE (`pulzr-edge ble`); absent or off, nothing runs.
+    #[cfg(target_endian = "little")]
     #[serde(default)]
     pub ble: Option<crate::ble::BleCfg>,
+    /// Read and ignored where there is no Bluetooth support (big-endian).
+    #[cfg(not(target_endian = "little"))]
+    #[serde(default)]
+    pub ble: Option<toml::Value>,
 }
 
 fn default_state_dir() -> PathBuf {
@@ -239,6 +244,7 @@ impl Config {
         if b.tls && b.ca.is_none() {
             bail!("broker.tls needs ca (or tls = false for a local test broker)");
         }
+        #[cfg(target_endian = "little")]
         if let Some(b) = &self.ble {
             b.validate()?;
         }

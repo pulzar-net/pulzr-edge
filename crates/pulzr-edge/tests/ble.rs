@@ -7,6 +7,8 @@
 //! `tests/bumble/beacon.py`. They skip without `BUMBLE_PYTHON` unless
 //! `BUMBLE_REQUIRED` is set (CI).
 
+#![cfg(target_endian = "little")]
+
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;

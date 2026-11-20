@@ -139,6 +139,12 @@ fn usage() -> ! {
 /// `pulzr-edge ble`: the gateway's Bluetooth controller, as its own process
 /// with its own buffer and MQTT session (client id `<adapter>-ble`) under
 /// the same adapter and broker login.
+#[cfg(not(target_endian = "little"))]
+async fn run_ble(_cfg: Config) -> Result<()> {
+    anyhow::bail!("Bluetooth is not supported on big-endian machines")
+}
+
+#[cfg(target_endian = "little")]
 async fn run_ble(cfg: Config) -> Result<()> {
     let Some(ble) = cfg.ble.clone().filter(|b| b.enabled) else {
         tracing::warn!("Bluetooth is off ([ble] enabled = false); nothing to do");
