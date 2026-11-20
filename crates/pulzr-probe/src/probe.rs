@@ -78,12 +78,16 @@ impl Prober for Builtin {
                 zwave(&format!("tcp://{host}:{port}"))
             }
             #[cfg(feature = "zigbee")]
-            (ProbeKind::Ezsp, Port::Serial(path)) => match path.to_str() {
-                Some(path) => ezsp(path),
-                None => Outcome::Error("device path is not UTF-8".into()),
-            },
+            (ProbeKind::Ezsp | ProbeKind::Znp | ProbeKind::Deconz, Port::Serial(path)) => {
+                match path.to_str() {
+                    Some(path) => zigbee(kind, path),
+                    None => Outcome::Error("device path is not UTF-8".into()),
+                }
+            }
             #[cfg(feature = "zigbee")]
-            (ProbeKind::Ezsp, Port::Tcp(host, port)) => ezsp(&format!("tcp://{host}:{port}")),
+            (ProbeKind::Ezsp | ProbeKind::Znp | ProbeKind::Deconz, Port::Tcp(host, port)) => {
+                zigbee(kind, &format!("tcp://{host}:{port}"))
+            }
             _ => Outcome::Unavailable,
         }
     }
@@ -139,13 +143,26 @@ pub fn first_answer(prober: &dyn Prober, kinds: &[ProbeKind], port: Port) -> Out
     }
 }
 
-/// ASH RST, then EZSP `version`, `getValue(VERSION_INFO)`, `getEui64` and the
-/// manufacturer and board tokens: reads only, nothing that writes NVM or
-/// touches a network. 115200 baud, as every EFR32 USB stick ships; bounded by
-/// zigbee-host, on a runtime that lives for this one probe.
+/// A Zigbee coordinator, through zigbee-host's probe (zigbee-bridge v0.2.0),
+/// reads only, nothing that writes NVM or touches a network, bounded at 3 s,
+/// at 115200 baud, as every common stick ships:
+///
+/// - EZSP: ASH RST, `version`, `getValue(VERSION_INFO)`, `getEui64`, the
+///   manufacturer and board tokens.
+/// - ZNP: the CC2652 bootloader-skip byte, SYS_PING, SYS_VERSION,
+///   UTIL_GET_DEVICE_INFO.
+/// - deCONZ: VERSION, MAC_ADDRESS.
+///
+/// On a runtime that lives for this one probe.
 #[cfg(feature = "zigbee")]
-fn ezsp(path: &str) -> Outcome {
+fn zigbee(kind: ProbeKind, path: &str) -> Outcome {
     use zigbee_host::probe::{probe, NcpKind};
+    let ncp = match kind {
+        ProbeKind::Ezsp => NcpKind::Ezsp,
+        ProbeKind::Znp => NcpKind::Znp,
+        ProbeKind::Deconz => NcpKind::Deconz,
+        _ => return Outcome::Unavailable,
+    };
     let rt = match tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
@@ -154,16 +171,18 @@ fn ezsp(path: &str) -> Outcome {
         Ok(rt) => rt,
         Err(e) => return Outcome::Error(e.to_string()),
     };
-    let found = rt.block_on(probe(path, NcpKind::Ezsp, 115_200));
+    let found = rt.block_on(probe(path, ncp, 115_200));
     drop(rt);
     match found {
         Ok(Some(id)) => Outcome::Answered(Answer {
             protocol: Some(Protocol::Zigbee),
-            ncp: Some("ezsp"),
+            ncp: Some(kind.ncp()),
             firmware: Some(id.firmware),
-            ezsp: Some(id.protocol),
-            // EZSP does not name its chip; the board token is the nearest.
-            chip: id.board.filter(|b| !b.trim().is_empty()),
+            // The EZSP protocol version means something only for EZSP.
+            ezsp: (kind == ProbeKind::Ezsp).then_some(id.protocol),
+            // The hardware a ZNP or deCONZ stick names ("Z-Stack 3.x.0",
+            // "ConBee III"); EZSP names none, and its board token is nearest.
+            chip: id.product.or(id.board).filter(|b| !b.trim().is_empty()),
         }),
         Ok(None) => Outcome::NoAnswer,
         Err(e) => Outcome::Error(e.to_string()),

@@ -2400,11 +2400,11 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "zigbee-bridge",
- "zigbee-host 0.2.0",
- "zigbee-sim 0.2.0",
- "zigbee-types 0.2.0",
- "zigbee-zcl 0.2.0",
- "zigbee-zdo 0.2.0",
+ "zigbee-host",
+ "zigbee-sim",
+ "zigbee-types",
+ "zigbee-zcl",
+ "zigbee-zdo",
  "zwave-host",
  "zwave-security",
  "zwave-serial 0.2.0",
@@ -2421,8 +2421,8 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
- "zigbee-host 0.1.0",
- "zigbee-sim 0.1.0",
+ "zigbee-host",
+ "zigbee-sim",
  "zwave-serial 0.1.0",
 ]
 
@@ -4590,19 +4590,8 @@ dependencies = [
 
 [[package]]
 name = "zigbee-ash"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "crc",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "zigbee-ash"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "crc",
  "thiserror",
@@ -4613,7 +4602,7 @@ dependencies = [
 [[package]]
 name = "zigbee-bridge"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "lexopt",
  "rumqttc",
@@ -4624,65 +4613,39 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "zigbee-host 0.2.0",
- "zigbee-types 0.2.0",
- "zigbee-zcl 0.2.0",
- "zigbee-zdo 0.2.0",
+ "zigbee-host",
+ "zigbee-types",
+ "zigbee-zcl",
+ "zigbee-zdo",
 ]
 
 [[package]]
 name = "zigbee-deconz"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "zigbee-types 0.2.0",
-]
-
-[[package]]
-name = "zigbee-ezsp"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "thiserror",
- "tokio",
- "tracing",
- "zigbee-ash 0.1.0",
- "zigbee-types 0.1.0",
+ "zigbee-types",
 ]
 
 [[package]]
 name = "zigbee-ezsp"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "zigbee-ash 0.2.0",
- "zigbee-types 0.2.0",
-]
-
-[[package]]
-name = "zigbee-host"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "thiserror",
- "tokio",
- "tokio-serial",
- "tracing",
- "zigbee-ash 0.1.0",
- "zigbee-ezsp 0.1.0",
- "zigbee-types 0.1.0",
+ "zigbee-ash",
+ "zigbee-types",
 ]
 
 [[package]]
 name = "zigbee-host"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "aes",
  "crc",
@@ -4693,62 +4656,37 @@ dependencies = [
  "tokio",
  "tokio-serial",
  "tracing",
- "zigbee-ash 0.2.0",
+ "zigbee-ash",
  "zigbee-deconz",
- "zigbee-ezsp 0.2.0",
- "zigbee-types 0.2.0",
- "zigbee-zcl 0.2.0",
- "zigbee-zdo 0.2.0",
+ "zigbee-ezsp",
+ "zigbee-types",
+ "zigbee-zcl",
+ "zigbee-zdo",
  "zigbee-znp",
 ]
 
 [[package]]
 name = "zigbee-sim"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zigbee-ash 0.1.0",
- "zigbee-ezsp 0.1.0",
- "zigbee-types 0.1.0",
- "zigbee-zcl 0.1.0",
- "zigbee-zdo 0.1.0",
-]
-
-[[package]]
-name = "zigbee-sim"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "zigbee-ash 0.2.0",
+ "zigbee-ash",
  "zigbee-deconz",
- "zigbee-ezsp 0.2.0",
- "zigbee-types 0.2.0",
- "zigbee-zcl 0.2.0",
- "zigbee-zdo 0.2.0",
+ "zigbee-ezsp",
+ "zigbee-types",
+ "zigbee-zcl",
+ "zigbee-zdo",
  "zigbee-znp",
 ]
 
 [[package]]
 name = "zigbee-types"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "zigbee-types"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "serde",
  "thiserror",
@@ -4756,57 +4694,35 @@ dependencies = [
 
 [[package]]
 name = "zigbee-zcl"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "half",
  "serde",
  "thiserror",
  "toml",
- "zigbee-types 0.1.0",
-]
-
-[[package]]
-name = "zigbee-zcl"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
-dependencies = [
- "half",
- "serde",
- "thiserror",
- "toml",
- "zigbee-types 0.2.0",
-]
-
-[[package]]
-name = "zigbee-zdo"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0#6b890832fe10fd0b88aa39792c8de5195156fb31"
-dependencies = [
- "serde",
- "thiserror",
- "zigbee-types 0.1.0",
+ "zigbee-types",
 ]
 
 [[package]]
 name = "zigbee-zdo"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "serde",
  "thiserror",
- "zigbee-types 0.2.0",
+ "zigbee-types",
 ]
 
 [[package]]
 name = "zigbee-znp"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?rev=b21cb90d92b6195519a60b71898d656d8c00a499#b21cb90d92b6195519a60b71898d656d8c00a499"
+source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "zigbee-types 0.2.0",
+ "zigbee-types",
 ]
 
 [[package]]
