@@ -88,10 +88,13 @@ jobs:
               # Flash is squashfs, which is xz, so that is what is measured;
               # most of the raw size is std's backtrace support and musl,
               # which stable Rust cannot leave out.
+              raw="$(stat -c %s "${bin}")"
+              flash="$(xz -9e -c "${bin}" | wc -c)"
+              # Every binary's size is said, because an add-on's installed size
+              # decides which boards can take it (pulzr-edge carries every
+              # radio module); pulzr-probe's is also held to its budget.
+              echo "${target}: ${bin_name} ${raw} bytes, ${flash} on flash"
               if [ "${bin_name}" = pulzr-probe ]; then
-                raw="$(stat -c %s "${bin}")"
-                flash="$(xz -9e -c "${bin}" | wc -c)"
-                echo "${target}: pulzr-probe ${raw} bytes, ${flash} on flash"
                 [ "${flash}" -le 512000 ] || { echo "${target}: pulzr-probe is ${flash} bytes on flash, over 500 KB" >&2; exit 1; }
               fi
               runner="CARGO_TARGET_$(echo "${target}" | tr 'a-z-' 'A-Z_')_RUNNER"
