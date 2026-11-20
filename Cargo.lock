@@ -224,8 +224,9 @@ dependencies = [
 
 [[package]]
 name = "bluetooth-adv"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/bluetooth-bridge?tag=v0.1.0#2bef9b893d682b1c9add0d6a0be20785a5541470"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8505e1608e18ae3b0e1b2dd5b21da0b7316298c4af01a87f427020880b54bd59"
 dependencies = [
  "aes",
  "bluetooth-numbers",
@@ -238,8 +239,9 @@ dependencies = [
 
 [[package]]
 name = "bluetooth-host"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/bluetooth-bridge?tag=v0.1.0#2bef9b893d682b1c9add0d6a0be20785a5541470"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8780c9abe05a16699b531fbf2845304f7613e7dbf0973ddc019f3aa2cff1b7a"
 dependencies = [
  "aes",
  "bluetooth-adv",
@@ -261,8 +263,9 @@ dependencies = [
 
 [[package]]
 name = "bluetooth-numbers"
-version = "0.1.0"
-source = "git+https://github.com/pulzar-net/bluetooth-bridge?tag=v0.1.0#2bef9b893d682b1c9add0d6a0be20785a5541470"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e23465d8f2d20c41326849663f207567c33ba381b2fdee7e89c2e13f082a286"
 dependencies = [
  "yaml-rust2",
 ]
