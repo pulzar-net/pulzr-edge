@@ -1,7 +1,7 @@
 //! The one MQTT 5 session to the platform broker: TLS with a client certificate,
 //! commands in, queued messages out one at a time until each is acknowledged.
 
-use crate::{config::Broker, modbus::bus::Router, outbox::Outbox};
+use crate::{config::Broker, outbox::Outbox};
 use anyhow::{Context, Result};
 use rumqttc::{
     tokio_rustls::rustls::{
@@ -13,6 +13,14 @@ use rumqttc::{
 };
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::sync::{watch, Notify};
+
+/// Whatever answers the commands of one process (a module per bus or radio).
+/// Every process of an adapter receives every command on the adapter's
+/// filter, so each must ignore keys outside its own scheme.
+pub trait Dispatch: Send + Sync {
+    /// Handle a message received on `pulzr/a/<adapter>/d/<key>/cmd`.
+    fn dispatch(&self, out: &Outbox, topic: &str, payload: &[u8]);
+}
 
 fn tls(b: &Broker) -> Result<TlsConfiguration> {
     let ca = b.ca.as_ref().unwrap();
@@ -74,7 +82,7 @@ pub async fn run(
     opts: MqttOptions,
     broker: Broker,
     out: Outbox,
-    router: Arc<Router>,
+    router: Arc<dyn Dispatch>,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let (client, mut ev) = AsyncClient::new(opts, 32);

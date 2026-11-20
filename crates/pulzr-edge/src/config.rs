@@ -22,6 +22,9 @@ pub struct Config {
     pub log: LogCfg,
     #[serde(default, rename = "bus")]
     pub buses: Vec<BusCfg>,
+    /// Bluetooth LE (`pulzr-edge ble`); absent or off, nothing runs.
+    #[serde(default)]
+    pub ble: Option<crate::ble::BleCfg>,
 }
 
 fn default_state_dir() -> PathBuf {
@@ -235,6 +238,9 @@ impl Config {
         }
         if b.tls && b.ca.is_none() {
             bail!("broker.tls needs ca (or tls = false for a local test broker)");
+        }
+        if let Some(b) = &self.ble {
+            b.validate()?;
         }
         let mut seen = std::collections::HashSet::new();
         for b in &self.buses {

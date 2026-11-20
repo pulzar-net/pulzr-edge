@@ -44,3 +44,15 @@ address = "192.168.1.50:502"
 id = 1
 map = "maps/generic-energy-meter.toml"
 offline_after = 3
+
+# Bluetooth LE: `pulzr-edge ble <this file>`, its own process. Off unless
+# enabled; on a gateway whose beacons are live, turning it on is a cutover.
+# [ble]
+# enabled = false
+# transport = "hci0"            # or serial:/dev/ttyAMA0:115200, tcp:host:port
+# interval_secs = 10            # one up per device per interval
+# admit = ["BC5729"]            # address prefixes to publish (or admit_all = true)
+# min_rssi = -100
+# active = false
+# parsed = false                # decoded fields in link.ble.parsed (costs bytes)
+# commands = true               # gatt.* and ble.advertise intents

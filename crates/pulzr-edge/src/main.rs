@@ -10,16 +10,19 @@ use tokio::sync::{mpsc, watch};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let path: PathBuf = match std::env::args().nth(1).as_deref() {
+    let mut args = std::env::args().skip(1);
+    let first = args.next();
+    let (ble, path): (bool, PathBuf) = match first.as_deref() {
         Some("--version" | "-V") => {
             println!("pulzr-edge {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
-        Some("--help" | "-h") | None => {
-            eprintln!("usage: pulzr-edge <config.toml>");
-            std::process::exit(2);
-        }
-        Some(p) => p.into(),
+        Some("--help" | "-h") | None => usage(),
+        Some("ble") => match args.next() {
+            Some(p) => (true, p.into()),
+            None => usage(),
+        },
+        Some(p) => (false, p.into()),
     };
     let cfg = Config::load(&path)?;
 
@@ -30,6 +33,10 @@ async fn main() -> Result<()> {
         sub.json().init();
     } else {
         sub.init();
+    }
+
+    if ble {
+        return run_ble(cfg).await;
     }
 
     let adapter = cfg.adapter();
@@ -118,6 +125,55 @@ async fn main() -> Result<()> {
     for t in tasks {
         let _ = tokio::time::timeout(Duration::from_secs(10), t).await;
     }
+    let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
+    out.flush();
+    tracing::info!(left_in_buffer = out.pending(), "stopped");
+    Ok(())
+}
+
+fn usage() -> ! {
+    eprintln!("usage: pulzr-edge <config.toml>       Modbus\n       pulzr-edge ble <config.toml>   Bluetooth LE ([ble] in the config)");
+    std::process::exit(2);
+}
+
+/// `pulzr-edge ble`: the gateway's Bluetooth controller, as its own process
+/// with its own buffer and MQTT session (client id `<adapter>-ble`) under
+/// the same adapter and broker login.
+async fn run_ble(cfg: Config) -> Result<()> {
+    let Some(ble) = cfg.ble.clone().filter(|b| b.enabled) else {
+        tracing::warn!("Bluetooth is off ([ble] enabled = false); nothing to do");
+        std::process::exit(3);
+    };
+    let adapter = cfg.adapter();
+    let dir = cfg.state_dir.join("ble");
+    let out = Outbox::open(
+        &dir.join("outbox"),
+        &adapter,
+        &cfg.gateway_eui,
+        cfg.buffer.max_bytes,
+    )?;
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), %adapter, transport = %ble.transport, queued = out.pending(), "pulzr-edge ble starting");
+    let (stop_tx, stop_rx) = watch::channel(false);
+    let router = Arc::new(pulzr_edge::ble::commands::Router::new(ble.commands));
+    let opts = mqtt::options(&cfg.broker, &format!("{adapter}-ble")).context("broker options")?;
+    let session = tokio::spawn(mqtt::run(
+        opts,
+        cfg.broker.clone(),
+        out.clone(),
+        Arc::new(router.clone()),
+        stop_rx.clone(),
+    ));
+    let radio = tokio::spawn(pulzr_edge::ble::run(
+        ble,
+        dir.join("keys"),
+        out.clone(),
+        router,
+        stop_rx,
+    ));
+    shutdown_signal().await;
+    tracing::info!("shutting down");
+    let _ = stop_tx.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(10), radio).await;
     let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
     out.flush();
     tracing::info!(left_in_buffer = out.pending(), "stopped");

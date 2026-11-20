@@ -197,6 +197,40 @@ other write answers illegal data address. Every write is logged (`RUST_LOG=info`
 Build it from source with `cargo build --release --features sim --bin pulzr-edge-sim`;
 releases publish `pulzr-edge-sim-<arch>-linux-musl` next to the daemon.
 
+## Bluetooth LE (`pulzr-edge ble`)
+
+The gateway's own Bluetooth controller, through `bluetooth-host` from
+[bluetooth-bridge](https://github.com/pulzar-net/bluetooth-bridge) (a host
+stack over raw HCI: the Linux HCI user channel, H4 serial, or TCP; no BlueZ).
+It runs as its own process, `pulzr-edge ble <config.toml>`, with its own
+buffer under `state_dir/ble` and its own MQTT session (client id
+`<adapter>-ble`) under the same adapter and login. It runs only with
+`[ble] enabled = true`, and an empty `admit` list is refused unless
+`admit_all = true`.
+
+- Each device heard is `ble:<EUI-64>` (its address, or the identity its
+  private address resolves to, with `fffe` in the middle). Once per
+  `interval_secs` it gets one `up`: the latest advertising data (and scan
+  response) as `raw`, the best RSSI of the interval in `rx`, and `link.ble`
+  (`adv`, `adv_type` for legacy PDUs, `tx_power`, and with `parsed = true`
+  every AD field and decoded beacon). The platform's BLE stage decodes `raw`
+  as it does for every adapter.
+- The controller is the device `ble:<its EUI-64>`: `state` online while the
+  stack runs, and the intents `ble.advertise` (`data`, `scan_response`,
+  `interval_ms`, `connectable`, `legacy`; answers `ok {set}`) and
+  `ble.advertise.stop` (`set`).
+- A device's key takes `gatt.discover`, `gatt.read` (`characteristic`,
+  `service`) and `gatt.write` (`characteristic`, `value` base64, `response`),
+  all with `secure` to pair or encrypt first: `queued`, `delivered` once
+  connected, then `ok` (with `value` or `services`), `failed undeliverable`
+  when this gateway has not heard it connectable or cannot connect.
+- Every process of an adapter receives the adapter's commands: the Modbus
+  process answers only `modbus:` keys and the BLE process only `ble:` keys.
+
+Tests: `tests/ble.rs` checks the bodies against the protocol schema, and runs
+the module end to end against Google's Bumble (a virtual controller and a
+scripted KKM beacon, `tests/bumble/beacon.py`) in CI.
+
 ## pulzr-probe
 
 What radios are plugged into this gateway, for PulzrOS's claim report and its

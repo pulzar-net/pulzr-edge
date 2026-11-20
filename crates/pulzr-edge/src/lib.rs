@@ -1,5 +1,6 @@
 //! Pulzr edge daemon: speaks the Pulzar protocol for the devices behind a gateway.
 
+pub mod ble;
 pub mod buffer;
 pub mod config;
 pub mod modbus;

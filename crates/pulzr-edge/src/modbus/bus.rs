@@ -56,6 +56,12 @@ pub struct Router {
     units: HashMap<String, (Arc<RegisterMap>, mpsc::Sender<CmdMsg>)>,
 }
 
+impl crate::mqtt::Dispatch for Router {
+    fn dispatch(&self, out: &Outbox, topic: &str, payload: &[u8]) {
+        Router::dispatch(self, out, topic, payload)
+    }
+}
+
 impl Router {
     pub fn add(&mut self, key: &str, map: Arc<RegisterMap>, tx: mpsc::Sender<CmdMsg>) {
         self.units.insert(key.to_string(), (map, tx));
@@ -71,6 +77,10 @@ impl Router {
             tracing::warn!(topic, "message on a topic that is not a command");
             return;
         };
+        // Other modules' devices (`ble:`, `gw:`) are theirs to answer.
+        if !key.starts_with("modbus:") {
+            return;
+        }
         let raw: Value = match serde_json::from_slice(payload) {
             Ok(v) => v,
             Err(e) => {

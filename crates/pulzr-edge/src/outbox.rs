@@ -97,6 +97,26 @@ impl Outbox {
         self.queue::<proto::Up>(key, "up", body);
     }
 
+    /// An `up` whose body (everything but `v` and `seq`) a module built
+    /// itself: the BLE module's `raw`, `rx` and `link.ble`.
+    pub fn up_body(&self, key: &str, mut body: Value) {
+        let seq = match self.0.seq.lock().unwrap().next(key) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = %e, "cannot persist seq");
+                return;
+            }
+        };
+        body["v"] = json!(1);
+        body["seq"] = json!(seq);
+        self.queue::<proto::Up>(key, "up", body);
+    }
+
+    /// `gw:<gateway eui>` in `rx`, the gateway that heard it.
+    pub fn via(&self) -> String {
+        format!("gw:{}", self.0.gateway_eui)
+    }
+
     pub fn state(&self, key: &str, online: bool, last_heard: Option<f64>, package: Option<&str>) {
         let mut body = json!({ "v": 1, "online": online });
         if let Some(t) = last_heard {
