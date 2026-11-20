@@ -58,9 +58,10 @@ impl Prober for NoStacks {
 }
 
 /// What this build can ask: an OpenThread RCP, whose two Spinel reads are
-/// pulzr-probe's own ([`crate::spinel`]), and a Z-Wave controller through
-/// zwave-bridge's `zwave_serial::probe` (feature `zwave`). Every other kind
-/// is unavailable until its stack's probe is built in.
+/// pulzr-probe's own ([`crate::spinel`]); a Z-Wave controller through
+/// zwave-bridge's `zwave_serial::probe` (feature `zwave`); and an EmberZNet
+/// coordinator through zigbee-bridge's `zigbee_host::probe` (feature
+/// `zigbee`). ZNP and deCONZ are unavailable until zigbee-host probes them.
 pub struct Builtin;
 
 impl Prober for Builtin {
@@ -76,6 +77,13 @@ impl Prober for Builtin {
             (ProbeKind::ZwaveSerial, Port::Tcp(host, port)) => {
                 zwave(&format!("tcp://{host}:{port}"))
             }
+            #[cfg(feature = "zigbee")]
+            (ProbeKind::Ezsp, Port::Serial(path)) => match path.to_str() {
+                Some(path) => ezsp(path),
+                None => Outcome::Error("device path is not UTF-8".into()),
+            },
+            #[cfg(feature = "zigbee")]
+            (ProbeKind::Ezsp, Port::Tcp(host, port)) => ezsp(&format!("tcp://{host}:{port}")),
             _ => Outcome::Unavailable,
         }
     }
@@ -128,5 +136,36 @@ pub fn first_answer(prober: &dyn Prober, kinds: &[ProbeKind], port: Port) -> Out
         (true, _) => Outcome::NoAnswer,
         (false, Some(e)) => Outcome::Error(e),
         (false, None) => Outcome::Unavailable,
+    }
+}
+
+/// ASH RST, then EZSP `version`, `getValue(VERSION_INFO)`, `getEui64` and the
+/// manufacturer and board tokens: reads only, nothing that writes NVM or
+/// touches a network. 115200 baud, as every EFR32 USB stick ships; bounded by
+/// zigbee-host, on a runtime that lives for this one probe.
+#[cfg(feature = "zigbee")]
+fn ezsp(path: &str) -> Outcome {
+    use zigbee_host::probe::{probe, NcpKind};
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(e) => return Outcome::Error(e.to_string()),
+    };
+    let found = rt.block_on(probe(path, NcpKind::Ezsp, 115_200));
+    drop(rt);
+    match found {
+        Ok(Some(id)) => Outcome::Answered(Answer {
+            protocol: Some(Protocol::Zigbee),
+            ncp: Some("ezsp"),
+            firmware: Some(id.firmware),
+            ezsp: Some(id.protocol),
+            // EZSP does not name its chip; the board token is the nearest.
+            chip: id.board.filter(|b| !b.trim().is_empty()),
+        }),
+        Ok(None) => Outcome::NoAnswer,
+        Err(e) => Outcome::Error(e.to_string()),
     }
 }

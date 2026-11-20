@@ -278,11 +278,12 @@ What a probe asks sits behind `probe::Prober`, and `Builtin` is what ships:
 |---|---|---|
 | `zwave-serial` | NAK, `GET_SERIAL_API_CAPABILITIES`; then, only from a controller, its version, id, init data, capabilities and RF region (reads only) | `zwave_serial::probe` in pulzar-net/zwave-bridge (feature `zwave`, on by default) |
 | `spinel` | `NCP_VERSION` and `CAPS` over HDLC-lite (reads only) | pulzr-probe's own `spinel.rs` |
-| `ezsp`, `znp`, `deconz` | none yet | `zigbee-host::probe` in pulzar-net/zigbee-bridge, once tagged |
+| `ezsp` | ASH RST, EZSP `version`, `getValue(VERSION_INFO)`, `getEui64`, the manufacturer and board tokens (reads only) | `zigbee_host::probe` in pulzar-net/zigbee-bridge (feature `zigbee`, on by default) |
+| `znp`, `deconz` | none yet | zigbee-host, in a later tag |
 
 A kind with no probe built in answers `probe: unavailable`: the adapter is
 reported as the table says it ships (`protocol`, `ncp`) and nothing is written
-to its port. Each probe is bounded (the Z-Wave one at 2.9 s) and closes the
+to its port. Each probe is bounded (about 3 s) and closes the
 port before it returns.
 
 Coordinators on the LAN (SLZB-06, UZG-01) come from mDNS: PulzrOS saves

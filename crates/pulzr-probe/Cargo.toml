@@ -23,11 +23,20 @@ libc = "0.2"
 # The Z-Wave controller probe: zwave-bridge's Serial API layer only, no host
 # stack. It brings a current-thread tokio for the length of one probe.
 zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.1.0", optional = true }
+# The Zigbee coordinator probe: zigbee-bridge's ASH/EZSP client only, no host.
+zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.1.0", default-features = false, features = ["probe", "serial"], optional = true }
+# zigbee-host's probe is async; it runs on a current-thread runtime that lives
+# for one probe (zwave-serial brings the same tokio).
+tokio = { version = "1", default-features = false, features = ["rt"], optional = true }
 
 [features]
-default = ["zwave"]
+default = ["zwave", "zigbee"]
 zwave = ["dep:zwave-serial"]
+zigbee = ["dep:zigbee-host", "dep:tokio"]
 
 [dev-dependencies]
+# An EmberZNet NCP to probe in tests (tests/zigbee.rs).
+zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.1.0" }
+tokio = { version = "1", features = ["rt-multi-thread", "net"] }
 jsonschema = { version = "0.61", default-features = false }
 tempfile = "3"
