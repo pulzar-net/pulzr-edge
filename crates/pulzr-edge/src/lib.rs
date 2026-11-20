@@ -5,6 +5,8 @@ pub mod ble;
 pub mod buffer;
 pub mod camera;
 pub mod config;
+#[cfg(feature = "matter")]
+pub mod matter;
 pub mod modbus;
 pub mod mqtt;
 pub mod outbox;

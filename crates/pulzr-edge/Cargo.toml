@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["zigbee", "zwave"]
+default = ["zigbee", "zwave", "matter"]
 # The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
 sim = ["tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
@@ -15,6 +15,9 @@ zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", 
 # Z-Wave Serial API controllers as a radio module (`pulzr-edge radio serve`),
 # on zwave-bridge's host stack.
 zwave = ["dep:zwave-host", "dep:zwave-security", "dep:zwave-serial", "dep:sha2", "tokio/process"]
+# The gateway's controller in its organization's Matter fabric, as the radio
+# `matter`, on matter-bridge's controller.
+matter = ["dep:matter-controller", "dep:matter-model"]
 
 [[bin]]
 name = "pulzr-edge"
@@ -51,6 +54,8 @@ zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc
 zwave-host = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 zwave-security = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
+matter-controller = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", default-features = false, optional = true }
+matter-model = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", optional = true }
 base64 = "0.22"
 # IP cameras (`pulzr-edge camera`): their settings API is plain HTTP on the LAN.
 des = "0.9"

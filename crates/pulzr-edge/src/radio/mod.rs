@@ -91,6 +91,8 @@ pub fn factory(protocol: &str) -> Option<Factory> {
         "zigbee" => Some(crate::zigbee::start),
         #[cfg(feature = "zwave")]
         "zwave" => Some(crate::zwave::start),
+        #[cfg(feature = "matter")]
+        "matter" => Some(crate::matter::start),
         _ => None,
     }
 }
