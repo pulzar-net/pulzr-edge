@@ -254,6 +254,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "cbc-mac"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc6611d09245ca98bffcd8371f1448da6fe962968aaeb5ead9a864af1dc7a09"
+dependencies = [
+ "cipher",
+ "digest",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -436,6 +446,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "curve25519-dalek"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5eed333089e2e1c1ac8c6c0398e5e2497b4c9926ca6d0365ed1e099afa5bc23"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "curve25519-dalek-derive",
+ "fiat-crypto",
+ "rustc_version",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -605,6 +641,12 @@ dependencies = [
  "rand_core",
  "subtle",
 ]
+
+[[package]]
+name = "fiat-crypto"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 
 [[package]]
 name = "find-msvc-tools"
@@ -848,6 +890,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ihex"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "365a784774bb381e8c19edb91190a90d7f2625e057b55de2bc0f6b57bc779ff2"
+
+[[package]]
 name = "indexmap"
 version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -890,6 +938,16 @@ checksum = "8dc09d2154098bbf4ef54eab6b117a3c24cbbffe94046b16ee6d6d4510584d3a"
 dependencies = [
  "cfg-if",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json5"
+version = "1.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0348cde6df2b507ba3c3753beba226baba8567af588d6568cdb9877f02c75b60"
+dependencies = [
+ "serde",
+ "ucd-trie",
 ]
 
 [[package]]
@@ -1161,6 +1219,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ofb"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f9e502b30c14fb1fecc196f9543975522c4380e4b0e8dcf4bf42e1d76375173"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1320,6 +1387,10 @@ dependencies = [
  "zigbee-types 0.1.0 (git+https://github.com/pulzar-net/zigbee-bridge?rev=1fc2ba77e8c3747477f1fc4db2e0567962974af2)",
  "zigbee-zcl 0.1.0 (git+https://github.com/pulzar-net/zigbee-bridge?rev=1fc2ba77e8c3747477f1fc4db2e0567962974af2)",
  "zigbee-zdo 0.1.0 (git+https://github.com/pulzar-net/zigbee-bridge?rev=1fc2ba77e8c3747477f1fc4db2e0567962974af2)",
+ "zwave-host",
+ "zwave-security",
+ "zwave-serial 0.2.0",
+ "zwave-sim",
 ]
 
 [[package]]
@@ -1334,7 +1405,7 @@ dependencies = [
  "tokio",
  "zigbee-host 0.1.0 (git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0)",
  "zigbee-sim 0.1.0 (git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.1.0)",
- "zwave-serial",
+ "zwave-serial 0.1.0",
 ]
 
 [[package]]
@@ -1516,6 +1587,15 @@ dependencies = [
  "tokio-rustls",
  "tokio-stream",
  "tokio-util",
+]
+
+[[package]]
+name = "rustc_version"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+dependencies = [
+ "semver",
 ]
 
 [[package]]
@@ -1738,6 +1818,8 @@ version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
 dependencies = [
+ "foldhash",
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
@@ -1792,6 +1874,17 @@ dependencies = [
  "scopeguard",
  "unescaper",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
 ]
 
 [[package]]
@@ -2244,6 +2337,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ucd-trie"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f20bdbfc9915686faa18fb5bbe8b4552778505defbf9f12289beefbc44092a6"
+
+[[package]]
 name = "unescaper"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2473,6 +2572,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "x25519-dalek"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7e8131a03190127fb2263afc72b322ecadae46b6ff8c6f399ff5d02f5559af6"
+dependencies = [
+ "curve25519-dalek",
+ "rand_core",
+ "zeroize",
+]
+
+[[package]]
 name = "yaml-rust2"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2508,6 +2618,20 @@ name = "zeroize"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "zigbee-ash"
@@ -2737,6 +2861,53 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
+name = "zwave-cc"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+dependencies = [
+ "crc",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "zwave-host"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+dependencies = [
+ "hex",
+ "ihex",
+ "json5",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "zwave-cc",
+ "zwave-security",
+ "zwave-serial 0.2.0",
+]
+
+[[package]]
+name = "zwave-security"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+dependencies = [
+ "aes",
+ "cbc-mac",
+ "ccm",
+ "cmac",
+ "getrandom 0.3.4",
+ "ofb",
+ "serde",
+ "sha1",
+ "thiserror",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "zwave-serial"
 version = "0.1.0"
 source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.1.0#467e5154ca3179885a14b7edf9f6cbbca6efcfb1"
@@ -2748,4 +2919,34 @@ dependencies = [
  "tokio-serial",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "zwave-serial"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "thiserror",
+ "tokio",
+ "tokio-serial",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "zwave-sim"
+version = "0.2.0"
+source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "zwave-cc",
+ "zwave-security",
+ "zwave-serial 0.2.0",
 ]

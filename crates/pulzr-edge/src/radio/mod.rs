@@ -89,6 +89,8 @@ pub fn factory(protocol: &str) -> Option<Factory> {
     match protocol {
         #[cfg(feature = "zigbee")]
         "zigbee" => Some(crate::zigbee::start),
+        #[cfg(feature = "zwave")]
+        "zwave" => Some(crate::zwave::start),
         _ => None,
     }
 }

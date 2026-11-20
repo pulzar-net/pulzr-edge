@@ -12,3 +12,5 @@ pub mod radio;
 pub mod sim;
 #[cfg(feature = "zigbee")]
 pub mod zigbee;
+#[cfg(feature = "zwave")]
+pub mod zwave;
