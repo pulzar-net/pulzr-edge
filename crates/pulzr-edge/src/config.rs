@@ -33,6 +33,38 @@ pub struct Config {
     /// IP cameras on the LAN (`pulzr-edge camera`).
     #[serde(default, rename = "camera")]
     pub cameras: Vec<crate::camera::CameraCfg>,
+    /// Where device firmware may be fetched from.
+    #[serde(default)]
+    pub firmware: FirmwareCfg,
+}
+
+/// `[firmware]`: the hosts a module fetches device firmware images from
+/// (the platform's asset host). A command naming any other host is
+/// refused; with none listed, no firmware is fetched.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FirmwareCfg {
+    #[serde(default)]
+    pub hosts: Vec<String>,
+}
+
+impl FirmwareCfg {
+    /// Whether `url` is `https://` on one of the hosts (any port; no user
+    /// info).
+    pub fn allows(&self, url: &str) -> bool {
+        let Some(rest) = url.strip_prefix("https://") else {
+            return false;
+        };
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+        if authority.contains('@') {
+            return false;
+        }
+        let host = match authority.rsplit_once(':') {
+            Some((h, port)) if port.bytes().all(|b| b.is_ascii_digit()) => h,
+            _ => authority,
+        };
+        !host.is_empty() && self.hosts.iter().any(|h| h.eq_ignore_ascii_case(host))
+    }
 }
 
 fn default_state_dir() -> PathBuf {

@@ -160,6 +160,8 @@ pub struct RadioCtx {
     pub port: String,
     pub out: Outbox,
     paths: Paths,
+    /// Where device firmware may be fetched from (`[firmware]`).
+    pub firmware: crate::config::FirmwareCfg,
 }
 
 impl RadioCtx {
@@ -169,7 +171,14 @@ impl RadioCtx {
             port: port.into(),
             out,
             paths,
+            firmware: Default::default(),
         }
+    }
+
+    /// The `[firmware]` hosts a module may fetch images from.
+    pub fn with_firmware(mut self, firmware: crate::config::FirmwareCfg) -> Self {
+        self.firmware = firmware;
+        self
     }
 
     /// The radio's file: what `pulzr-radios use` wrote (`radio`, `protocol`)
@@ -326,7 +335,9 @@ pub async fn serve(cfg: Config, radio: &str, paths: Paths) -> Result<()> {
         cfg.buffer.max_bytes,
     )?;
     tracing::info!(version = env!("CARGO_PKG_VERSION"), %radio, %protocol, %port, "pulzr-edge radio starting");
-    let module = start(RadioCtx::new(radio, &port, out.clone(), paths.clone()))?;
+    let module = start(
+        RadioCtx::new(radio, &port, out.clone(), paths.clone()).with_firmware(cfg.firmware.clone()),
+    )?;
 
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let opts = crate::mqtt::options(&cfg.broker, &format!("{adapter}-{radio}"))?;

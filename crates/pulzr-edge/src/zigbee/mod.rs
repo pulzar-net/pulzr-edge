@@ -11,8 +11,9 @@
 //!   network key lives in the radio's file, nowhere else.
 //! - The platform's `zigbee.zcl`, `zigbee.zdo` and `zigbee.wait` commands
 //!   run in order per device ([`commands`]).
-//! - Topology: last hops and route records as they come, and every router's
-//!   neighbor table on a schedule ([`TOPOLOGY_SCAN`]).
+//! - Topology: last hops and route records as they come, and a walk of
+//!   every router's neighbor and routing tables on a schedule
+//!   ([`TOPOLOGY_SCAN`]) or when a person asks (`map`).
 //! - Backups after joins and leaves (at most one a minute) and hourly, in the
 //!   open coordinator backup format, through [`RadioCtx::backup`].
 
@@ -147,6 +148,8 @@ pub struct Zigbee {
     firmware: Mutex<Option<String>>,
     joining: Mutex<Option<Joining>>,
     backup_at: Mutex<Option<f64>>,
+    /// A mesh walk is running.
+    mapping: std::sync::atomic::AtomicBool,
     commands: commands::Queues,
 }
 
@@ -161,6 +164,7 @@ pub fn start(ctx: RadioCtx) -> Result<Arc<dyn RadioModule>> {
     let module = Arc::new_cyclic(|me| Zigbee {
         me: me.clone(),
         commands: commands::Queues::default(),
+        mapping: std::sync::atomic::AtomicBool::new(false),
         ctx,
         stage: tokio::sync::Mutex::new(Stage::Unformed(None)),
         host: Mutex::new(None),
@@ -182,6 +186,7 @@ pub fn start(ctx: RadioCtx) -> Result<Arc<dyn RadioModule>> {
             }
         });
     }
+    module.commands.set_firmware(module.ctx.firmware.clone());
     let m = module.clone();
     tokio::spawn(async move { m.schedules().await });
     Ok(module)
@@ -452,7 +457,12 @@ impl Zigbee {
             tokio::select! {
                 _ = backups.tick() => self.backup_now().await,
                 _ = passive.tick() => self.publish_topology("passive"),
-                _ = scans.tick() => self.scan_topology().await,
+                _ = scans.tick() => {
+                    if !self.mapping.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                        self.walk().await;
+                        self.mapping.store(false, std::sync::atomic::Ordering::SeqCst);
+                    }
+                }
             }
         }
     }
@@ -495,9 +505,11 @@ impl Zigbee {
 
     /// Ask every router (and the coordinator) for its neighbor table, then
     /// publish the whole topology.
-    async fn scan_topology(&self) {
-        let Some(host) = self.host() else { return };
-        let mut routers = vec![host.network().ieee];
+    /// The routers to ask: the coordinator and every router that is not
+    /// asleep.
+    fn routers(host: &Host<AnyAdapter>) -> Vec<(Ieee, zigbee_types::NodeId)> {
+        let n = host.network();
+        let mut routers = vec![(n.ieee, n.nwk)];
         routers.extend(
             host.devices()
                 .iter()
@@ -507,14 +519,146 @@ impl Zigbee {
                             .as_ref()
                             .is_some_and(|n| n.logical_type() == zigbee_zdo::LogicalType::Router)
                 })
-                .map(|d| d.ieee),
+                .map(|d| (d.ieee, d.nwk)),
         );
-        for ieee in routers {
-            if let Err(e) = host.scan_neighbors(ieee).await {
-                tracing::debug!(%ieee, error = %e, "neighbor scan");
+        routers
+    }
+
+    /// Walk the mesh: each router's neighbor table (Mgmt_Lqi) and routing
+    /// table (Mgmt_Rtg), page by page, one request in flight; then publish
+    /// the whole topology. Routes in use are `route` edges, the rest of the
+    /// neighbors `neighbor` edges.
+    async fn walk(&self) {
+        use zigbee_zdo::Body;
+        let Some(host) = self.host() else { return };
+        let coordinator = host.network();
+        let name = |nwk: zigbee_types::NodeId| -> Option<String> {
+            if nwk == coordinator.nwk {
+                Some(key(coordinator.ieee))
+            } else {
+                host.device_by_nwk(nwk).map(|d| key(d.ieee))
+            }
+        };
+        // (from, to) -> (kind, lqi)
+        let mut edges: std::collections::BTreeMap<(String, String), (&str, Option<u8>)> =
+            std::collections::BTreeMap::new();
+        for (ieee, nwk) in Self::routers(&host) {
+            let router = key(ieee);
+            let mut start = 0u8;
+            for _ in 0..16 {
+                let Ok(m) = host
+                    .zdo_request(nwk, Body::MgmtLqiReq { start_index: start })
+                    .await
+                else {
+                    break;
+                };
+                let Body::MgmtLqiRsp {
+                    status: 0,
+                    total,
+                    neighbors,
+                    ..
+                } = m.body
+                else {
+                    break;
+                };
+                if neighbors.is_empty() {
+                    break;
+                }
+                for n in &neighbors {
+                    if n.ieee == Ieee::ZERO || n.ieee == Ieee::UNSET {
+                        continue;
+                    }
+                    edges
+                        .entry((key(n.ieee), router.clone()))
+                        .or_insert(("neighbor", Some(n.lqi)));
+                }
+                start = start.saturating_add(neighbors.len() as u8);
+                if start >= total {
+                    break;
+                }
+            }
+            let mut start = 0u8;
+            for _ in 0..16 {
+                let Ok(m) = host
+                    .zdo_request(nwk, Body::MgmtRtgReq { start_index: start })
+                    .await
+                else {
+                    break;
+                };
+                let Body::MgmtRtgRsp {
+                    status: 0,
+                    total,
+                    routes,
+                    ..
+                } = m.body
+                else {
+                    break;
+                };
+                if routes.is_empty() {
+                    break;
+                }
+                for r in &routes {
+                    // Status 0: active.
+                    if r.flags & 0x07 != 0 {
+                        continue;
+                    }
+                    if let Some(next) = name(r.next_hop).filter(|n| *n != router) {
+                        let e = edges
+                            .entry((router.clone(), next))
+                            .or_insert(("route", None));
+                        e.0 = "route";
+                    }
+                }
+                start = start.saturating_add(routes.len() as u8);
+                if start >= total {
+                    break;
+                }
             }
         }
-        self.publish_topology("scan");
+        let coordinator_key = key(coordinator.ieee);
+        let mut list =
+            vec![json!({ "from": coordinator_key, "to": self.ctx.out.via(), "kind": "bus" })];
+        for ((from, to), (kind, lqi)) in edges.into_iter().take(1999) {
+            let mut e = json!({ "from": from, "to": to, "kind": kind });
+            if let Some(l) = lqi {
+                e["quality"] = json!({ "lqi": l });
+            }
+            list.push(e);
+        }
+        self.ctx.out.topology(
+            &coordinator_key,
+            json!({ "ts": now(), "protocol": "zigbee", "source": "scan", "complete": true, "edges": list }),
+        );
+    }
+
+    /// The `map` op: start a walk unless joining is open, an upgrade runs,
+    /// or a walk is already going.
+    fn map(self: &Arc<Self>) -> Result<Value, RadioError> {
+        let host = self
+            .host()
+            .ok_or_else(|| refused("no network on this radio"))?;
+        if self
+            .joining
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|j| j.until > now())
+        {
+            return Err(RadioError::Busy("the network is open for joining".into()));
+        }
+        if self.commands.upgrading() {
+            return Err(RadioError::Busy("a firmware upgrade is running".into()));
+        }
+        if self.mapping.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Err(RadioError::Busy("a map is already being made".into()));
+        }
+        let requests = Self::routers(&host).len() * 2;
+        let m = self.clone();
+        tokio::spawn(async move {
+            m.walk().await;
+            m.mapping.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+        Ok(json!({ "started": true, "requests": requests }))
     }
 
     /// Host events to protocol messages.
@@ -716,6 +860,7 @@ impl Zigbee {
                 let _ = self.ctx.save(&file);
                 Ok(self.status())
             }
+            "map" => self.map(),
             "replace" => Err(refused(
                 "Zigbee has no replace; remove the device and pair the new one",
             )),

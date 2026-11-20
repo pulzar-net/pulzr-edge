@@ -56,6 +56,8 @@ pub struct Queues {
     ota: std::sync::Arc<Mutex<HashMap<Ieee, (String, PathBuf)>>>,
     /// Where images are fetched to (the host's OTA directory).
     ota_dir: Mutex<Option<PathBuf>>,
+    /// The hosts images may come from.
+    firmware: Mutex<crate::config::FirmwareCfg>,
 }
 
 fn b64(s: &str) -> Option<Vec<u8>> {
@@ -67,6 +69,16 @@ fn enc(b: &[u8]) -> String {
 }
 
 impl Queues {
+    /// Whether a firmware upgrade is running.
+    pub fn upgrading(&self) -> bool {
+        !self.ota.lock().unwrap().is_empty()
+    }
+
+    /// The hosts firmware images may be fetched from.
+    pub fn set_firmware(&self, firmware: crate::config::FirmwareCfg) {
+        *self.firmware.lock().unwrap() = firmware;
+    }
+
     /// The host's OTA directory, once a network runs.
     pub fn set_ota_dir(&self, dir: PathBuf) {
         *self.ota_dir.lock().unwrap() = Some(dir);
@@ -217,6 +229,7 @@ impl Queues {
         let ota = Ota {
             running: self.ota.clone(),
             dir: self.ota_dir.lock().unwrap().clone(),
+            firmware: self.firmware.lock().unwrap().clone(),
         };
         let tx = queues.entry(key.to_string()).or_insert_with(|| {
             let (tx, rx) = mpsc::channel(QUEUE);
@@ -247,6 +260,7 @@ impl Queues {
 struct Ota {
     running: std::sync::Arc<Mutex<HashMap<Ieee, (String, PathBuf)>>>,
     dir: Option<PathBuf>,
+    firmware: crate::config::FirmwareCfg,
 }
 
 async fn worker(
@@ -306,11 +320,13 @@ async fn upgrade(host: &Host<AnyAdapter>, ieee: Ieee, job: &Job, ota: &Ota) -> O
         .get("url")
         .and_then(Value::as_str)
         .ok_or_else(|| invalid("url is required"))?;
-    let https = url.starts_with("https://");
-    // file:// only where a test asks for it.
+    // Only the platform's own asset hosts ([firmware] hosts), never one a
+    // command names alone. file:// only where a test asks for it.
     let file = url.starts_with("file://") && std::env::var_os("PULZR_EDGE_OTA_FILE_URLS").is_some();
-    if !(https || file) || url.len() > 2048 {
-        return Err(invalid("url must be https"));
+    if url.len() > 2048 || !(file || ota.firmware.allows(url)) {
+        return Err(invalid(
+            "url must be https on one of this gateway's firmware hosts",
+        ));
     }
     let sha256 = p
         .get("sha256")
@@ -335,9 +351,24 @@ async fn upgrade(host: &Host<AnyAdapter>, ieee: Ieee, job: &Job, ota: &Ota) -> O
     let image = dir.join(format!("{sha256}.ota"));
     let part = dir.join(format!("{sha256}.part"));
     fetch(url, &part).await.map_err(|e| ("error", e))?;
-    if let Err(e) = check(&part, sha256, want_version) {
+    let header = match check(&part, sha256, want_version) {
+        Ok(h) => h,
+        Err(e) => {
+            let _ = std::fs::remove_file(&part);
+            return Err(("error", e));
+        }
+    };
+    // The image must be for this device's maker (its image type is checked
+    // against what the device reports when it asks).
+    let maker = host
+        .device(ieee)
+        .and_then(|d| d.node_descriptor.map(|n| n.manufacturer_code));
+    if let Some(m) = maker.filter(|m| *m != header.manufacturer) {
         let _ = std::fs::remove_file(&part);
-        return Err(("error", e));
+        return Err(invalid(&format!(
+            "the image is for manufacturer {:#06x}, not this device's {m:#06x}",
+            header.manufacturer
+        )));
     }
     std::fs::rename(&part, &image).map_err(|e| ("error", e.to_string()))?;
     ota.running
@@ -372,17 +403,24 @@ async fn fetch(url: &str, to: &Path) -> Result<(), String> {
         .map_err(|e| format!("curl: {e}"))?;
     if !run.status.success() {
         let _ = std::fs::remove_file(to);
-        let why = String::from_utf8_lossy(&run.stderr);
-        return Err(format!(
-            "fetching the image: {}",
-            why.trim().chars().take(200).collect::<String>()
-        ));
+        // curl's message names the URL, which may be a signed link: keep it
+        // out of the answer and the logs.
+        return Err(match run.status.code() {
+            Some(22) => "the image server refused the download".into(),
+            Some(63) => "the image is over 16 MB".into(),
+            Some(c) => format!("the image download failed (curl {c})"),
+            None => "the image download was stopped".into(),
+        });
     }
     Ok(())
 }
 
 /// The image's hash and OTA header.
-fn check(path: &Path, sha256: &str, version: Option<u64>) -> Result<(), String> {
+fn check(
+    path: &Path,
+    sha256: &str,
+    version: Option<u64>,
+) -> Result<zigbee_host::ota::OtaHeader, String> {
     use sha2::{Digest, Sha256};
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     if bytes.len() as u64 > MAX_IMAGE {
@@ -404,7 +442,7 @@ fn check(path: &Path, sha256: &str, version: Option<u64>) -> Result<(), String> 
             ));
         }
     }
-    Ok(())
+    Ok(header)
 }
 
 async fn run(

@@ -65,7 +65,11 @@ async fn rig(ncp: SimNcp) -> Rig {
         4 << 20,
     )
     .unwrap();
-    let ctx = RadioCtx::new(RADIO, &port, out.clone(), paths);
+    let ctx = RadioCtx::new(RADIO, &port, out.clone(), paths).with_firmware(
+        pulzr_edge::config::FirmwareCfg {
+            hosts: vec!["assets.example".into()],
+        },
+    );
     let factory = pulzr_edge::radio::factory("zigbee").expect("a zigbee module in this build");
     let module = factory(ctx).unwrap();
     Rig {
@@ -251,6 +255,34 @@ async fn end_to_end(ncp: SimNcp, family: &str) {
     let net = rig.wait("/cmd/res", |v| v["id"] == "c0000006-net").await;
     assert_eq!(net["status"], "refused");
 
+    // A map of the mesh: refused while joining is open, then a walk of
+    // every router's tables, published as one complete topology.
+    let busy = rig.module.call("map", json!({})).await.unwrap_err();
+    assert_eq!(busy.code(), "busy");
+    rig.call("permit-stop", json!({})).await;
+    let map = rig.call("map", json!({})).await;
+    assert_eq!(map["started"], true);
+    assert!(map["requests"].as_u64().unwrap() >= 2);
+    let topology = rig
+        .wait(&format!("{coordinator}/topology"), |v| {
+            v["source"] == "scan"
+        })
+        .await;
+    assert_eq!(topology["complete"], true);
+    let edges = topology["edges"].as_array().unwrap();
+    assert!(
+        edges.iter().any(|e| e["from"] == format!("zigbee:{PLUG}")
+            && e["to"] == coordinator
+            && e["kind"] == "route"),
+        "{topology}"
+    );
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["kind"] == "neighbor" && e["quality"]["lqi"].is_u64()),
+        "{topology}"
+    );
+
     // A backup: the open coordinator backup in the radio's envelope.
     let backup = rig.call("backup", json!({})).await;
     assert_eq!(backup["backup"]["network"], NETWORK);
@@ -358,6 +390,30 @@ async fn a_device_types_firmware_image_reaches_the_device() {
     std::fs::write(&file, &image).unwrap();
     let url = format!("file://{}", file.display());
     let sha = hex::encode(Sha256::digest(&image));
+
+    // Only the gateway's firmware hosts: never one the command names alone.
+    rig.command(
+        PLUG,
+        "o0000000-host",
+        "zigbee.ota",
+        json!({ "url": "https://elsewhere.example/plug.ota", "sha256": sha }),
+    );
+    let host = rig.wait("/cmd/res", |v| v["id"] == "o0000000-host").await;
+    assert_eq!(
+        (host["status"].as_str(), host["reason"].as_str()),
+        (Some("refused"), Some("invalid"))
+    );
+    // An image for another maker is refused.
+    let other = zigbee_host::ota::build(0x9999, 0x0001, 0x0200_0000, &[1; 64]);
+    let other_file = rig._dir.path().join("other.ota");
+    std::fs::write(&other_file, &other).unwrap();
+    rig.command(PLUG, "o0000009-maker", "zigbee.ota", json!({ "url": format!("file://{}", other_file.display()), "sha256": hex::encode(Sha256::digest(&other)) }));
+    let maker = rig.wait("/cmd/res", |v| v["id"] == "o0000009-maker").await;
+    assert_eq!(
+        (maker["status"].as_str(), maker["reason"].as_str()),
+        (Some("refused"), Some("invalid")),
+        "{maker}"
+    );
 
     // A hash that does not match is never offered.
     rig.command(

@@ -46,11 +46,11 @@ tokio-serial = "5"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
-zigbee-bridge = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
-zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
-zigbee-zdo = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
-zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
+zigbee-bridge = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
+zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
+zigbee-zdo = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
+zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
 zwave-host = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 zwave-security = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
@@ -73,9 +73,9 @@ bluetooth-host = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag =
 [dev-dependencies]
 sha2 = "0.11"
 zwave-sim = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b" }
-zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
-zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
-zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
+zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }
+zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }
+zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "time", "sync"] }
 tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu", "tcp-server"] }
 tempfile = "3"
