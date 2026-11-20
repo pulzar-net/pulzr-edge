@@ -26,7 +26,7 @@ use pulzr_protocol as proto;
 use serde_json::{json, Map, Value};
 use tokio::sync::mpsc;
 use zigbee_host::{AnyAdapter, Host, HostError, RawZcl};
-use zigbee_types::Ieee;
+use zigbee_primitives::Ieee;
 
 use crate::outbox::{now, Outbox};
 

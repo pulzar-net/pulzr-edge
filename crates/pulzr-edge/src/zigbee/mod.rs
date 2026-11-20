@@ -33,7 +33,7 @@ use zigbee_host::{
     AdapterEvent, AnyAdapter, Backup, Device, Host, HostConfig, HostError, HostEvent, JoinPolicy,
     NetworkSettings, StartMode,
 };
-use zigbee_types::{ExtPanId, Ieee, Key};
+use zigbee_primitives::{ExtPanId, Ieee, Key};
 
 use crate::outbox::{now, Outbox};
 use crate::radio::{BoxFuture, RadioCtx, RadioError, RadioModule};
@@ -507,7 +507,7 @@ impl Zigbee {
     /// publish the whole topology.
     /// The routers to ask: the coordinator and every router that is not
     /// asleep.
-    fn routers(host: &Host<AnyAdapter>) -> Vec<(Ieee, zigbee_types::NodeId)> {
+    fn routers(host: &Host<AnyAdapter>) -> Vec<(Ieee, zigbee_primitives::NodeId)> {
         let n = host.network();
         let mut routers = vec![(n.ieee, n.nwk)];
         routers.extend(
@@ -532,7 +532,7 @@ impl Zigbee {
         use zigbee_zdo::Body;
         let Some(host) = self.host() else { return };
         let coordinator = host.network();
-        let name = |nwk: zigbee_types::NodeId| -> Option<String> {
+        let name = |nwk: zigbee_primitives::NodeId| -> Option<String> {
             if nwk == coordinator.nwk {
                 Some(key(coordinator.ieee))
             } else {

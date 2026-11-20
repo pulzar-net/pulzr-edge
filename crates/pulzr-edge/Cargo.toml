@@ -23,7 +23,7 @@ camera = ["dep:des", "dep:quick-xml", "dep:reqwest"]
 sim = ["modbus", "tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
 # zigbee-bridge's stack: EmberZNet, Z-Stack and deCONZ dongles.
-zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-types"]
+zigbee = ["dep:sha2", "dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-primitives"]
 # Z-Wave Serial API controllers as a radio module (`pulzr-edge radio serve`),
 # on zwave-bridge's host stack.
 zwave = ["dep:zwave-host", "dep:zwave-security", "dep:zwave-serial", "dep:sha2", "tokio/process"]
@@ -49,6 +49,10 @@ name = "modbus_tcp"
 required-features = ["modbus"]
 
 [[test]]
+name = "schema"
+required-features = ["modbus"]
+
+[[test]]
 name = "ble"
 required-features = ["ble"]
 
@@ -66,11 +70,11 @@ tokio-serial = { version = "5", optional = true }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", optional = true }
-zigbee-bridge = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", optional = true }
-zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", optional = true }
-zigbee-zdo = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", optional = true }
-zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0", optional = true }
+zigbee-host = { version = "0.3", optional = true }
+zigbee-bridge = { version = "0.3", optional = true }
+zigbee-zcl = { version = "0.3", optional = true }
+zigbee-zdo = { version = "0.3", optional = true }
+zigbee-primitives = { version = "0.3", optional = true }
 zwave-host = { version = "0.2.1", optional = true }
 zwave-security = { version = "0.2.1", optional = true }
 zwave-serial = { version = "0.2.1", optional = true }
@@ -93,9 +97,9 @@ bluetooth-host = { version = "0.2", optional = true }
 [dev-dependencies]
 sha2 = "0.11"
 zwave-sim = { version = "0.2.1" }
-zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0" }
-zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0" }
-zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", tag = "v0.2.0" }
+zigbee-sim = { version = "0.3" }
+zigbee-primitives = { version = "0.3" }
+zigbee-zcl = { version = "0.3" }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "time", "sync"] }
 tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu", "tcp-server"] }
 tempfile = "3"

@@ -2404,8 +2404,8 @@ dependencies = [
  "tracing-subscriber",
  "zigbee-bridge",
  "zigbee-host",
+ "zigbee-primitives",
  "zigbee-sim",
- "zigbee-types",
  "zigbee-zcl",
  "zigbee-zdo",
  "zwave-host",
@@ -4593,8 +4593,9 @@ dependencies = [
 
 [[package]]
 name = "zigbee-ash"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71283f2d6f62273f83f892380856bcbfdf66bb208bc09f40e0ea0629d5fd073f"
 dependencies = [
  "crc",
  "thiserror",
@@ -4604,8 +4605,9 @@ dependencies = [
 
 [[package]]
 name = "zigbee-bridge"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1262505139f6e2a035a25bfc9ac3878eb70c4e90b27a76c9e2cd0f04d021aee5"
 dependencies = [
  "lexopt",
  "rumqttc",
@@ -4617,38 +4619,41 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "zigbee-host",
- "zigbee-types",
+ "zigbee-primitives",
  "zigbee-zcl",
  "zigbee-zdo",
 ]
 
 [[package]]
 name = "zigbee-deconz"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c192d026e6c710a45f31de648bd888429c579b7a25b3df8bfeac9dbf608633d9"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "zigbee-types",
+ "zigbee-primitives",
 ]
 
 [[package]]
 name = "zigbee-ezsp"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "003e0f9d4ce7f776e8e408595af1eb48792032bd6a43aaf03caa3fc877d238d4"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
  "zigbee-ash",
- "zigbee-types",
+ "zigbee-primitives",
 ]
 
 [[package]]
 name = "zigbee-host"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce33f782cbe3f242875c4d074c19ba72cfedbb6200804512a5c68cb1043a2c9b"
 dependencies = [
  "aes",
  "crc",
@@ -4662,16 +4667,27 @@ dependencies = [
  "zigbee-ash",
  "zigbee-deconz",
  "zigbee-ezsp",
- "zigbee-types",
+ "zigbee-primitives",
  "zigbee-zcl",
  "zigbee-zdo",
  "zigbee-znp",
 ]
 
 [[package]]
+name = "zigbee-primitives"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c126665099d57abe9dece0688522510269433aaee26b30154b77e8b300436a4"
+dependencies = [
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "zigbee-sim"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05577a12932ea6c89d8ab3d565f307d3603a6496c0270ec3db6abfe6ac4349ac"
 dependencies = [
  "thiserror",
  "tokio",
@@ -4680,52 +4696,46 @@ dependencies = [
  "zigbee-ash",
  "zigbee-deconz",
  "zigbee-ezsp",
- "zigbee-types",
+ "zigbee-primitives",
  "zigbee-zcl",
  "zigbee-zdo",
  "zigbee-znp",
 ]
 
 [[package]]
-name = "zigbee-types"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
-dependencies = [
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "zigbee-zcl"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ae1d3e5dfefd51f7cd966883aee0bfd7914b0ae8f246b3facad2e1404ac7a9c"
 dependencies = [
  "half",
  "serde",
  "thiserror",
  "toml",
- "zigbee-types",
+ "zigbee-primitives",
 ]
 
 [[package]]
 name = "zigbee-zdo"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42d1471f0f13c03269473c83d74475218165c34f7b4a244af73d0c70d64ff63e"
 dependencies = [
  "serde",
  "thiserror",
- "zigbee-types",
+ "zigbee-primitives",
 ]
 
 [[package]]
 name = "zigbee-znp"
-version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zigbee-bridge?tag=v0.2.0#b21cb90d92b6195519a60b71898d656d8c00a499"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b010790efcddddffebdefda132666fc66adfd9410dade6e91c3074e4a15be685"
 dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "zigbee-types",
+ "zigbee-primitives",
 ]
 
 [[package]]
