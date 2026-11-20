@@ -30,6 +30,9 @@ pub struct Config {
     #[cfg(not(target_endian = "little"))]
     #[serde(default)]
     pub ble: Option<toml::Value>,
+    /// IP cameras on the LAN (`pulzr-edge camera`).
+    #[serde(default, rename = "camera")]
+    pub cameras: Vec<crate::camera::CameraCfg>,
 }
 
 fn default_state_dir() -> PathBuf {
@@ -247,6 +250,13 @@ impl Config {
         #[cfg(target_endian = "little")]
         if let Some(b) = &self.ble {
             b.validate()?;
+        }
+        let mut keys = std::collections::HashSet::new();
+        for c in &self.cameras {
+            c.validate()?;
+            if !keys.insert(c.key()) {
+                bail!("camera {} is listed twice", c.mac);
+            }
         }
         let mut seen = std::collections::HashSet::new();
         for b in &self.buses {

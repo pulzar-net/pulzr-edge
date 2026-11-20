@@ -52,6 +52,10 @@ zwave-host = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e
 zwave-security = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
 base64 = "0.22"
+# IP cameras (`pulzr-edge camera`): their settings API is plain HTTP on the LAN.
+des = "0.9"
+quick-xml = "0.42"
+reqwest = { version = "0.13", default-features = false }
 hex = "0.4"
 
 # Bluetooth (`pulzr-edge ble`). bt-hci, which encodes HCI, builds for

@@ -3,6 +3,7 @@
 #[cfg(target_endian = "little")]
 pub mod ble;
 pub mod buffer;
+pub mod camera;
 pub mod config;
 pub mod modbus;
 pub mod mqtt;
