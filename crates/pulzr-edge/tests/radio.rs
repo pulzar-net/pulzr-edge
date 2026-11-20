@@ -241,6 +241,8 @@ fn radio_ids_are_pulzr_probes() {
     assert!(!valid_radio_id("usb-"));
     assert!(!valid_radio_id("usb-../../etc/shadow"));
     assert!(!valid_radio_id("ttyUSB0"));
+    assert!(valid_radio_id("matter"));
+    assert!(!valid_radio_id("matter2"));
 }
 
 #[test]

@@ -133,8 +133,16 @@ impl Paths {
     }
 }
 
-/// pulzr-probe's radio id: `usb-…`, `uart-…` or `lan-…`.
+/// The radio id of a Matter fabric's controller: one per gateway, on no
+/// port of its own (Matter rides on IP, and on Thread through the border
+/// router), but run, driven and kept like any radio's module.
+pub const MATTER: &str = "matter";
+
+/// pulzr-probe's radio id (`usb-…`, `uart-…`, `lan-…`), or [`MATTER`].
 pub fn valid_radio_id(id: &str) -> bool {
+    if id == MATTER {
+        return true;
+    }
     let rest = ["usb-", "uart-", "lan-"]
         .iter()
         .find_map(|p| id.strip_prefix(p));
@@ -294,7 +302,11 @@ pub async fn serve(cfg: Config, radio: &str, paths: Paths) -> Result<()> {
         // procd's respawn gives up; the console says why.
         std::process::exit(3);
     };
-    let port = port_of(&paths.probe_report, radio)?;
+    let port = if radio == MATTER {
+        String::new()
+    } else {
+        port_of(&paths.probe_report, radio)?
+    };
     let adapter = cfg.adapter();
     let out = Outbox::open(
         &cfg.state_dir.join("radio").join(radio),
