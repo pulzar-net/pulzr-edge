@@ -86,8 +86,9 @@ pub type Factory = fn(RadioCtx) -> Result<Arc<dyn RadioModule>>;
 
 /// The module for a protocol in this build, if any. A stack adds its line.
 pub fn factory(protocol: &str) -> Option<Factory> {
-    #[allow(clippy::match_single_binding)]
     match protocol {
+        #[cfg(feature = "zigbee")]
+        "zigbee" => Some(crate::zigbee::start),
         _ => None,
     }
 }
@@ -166,6 +167,12 @@ impl RadioCtx {
         let text =
             std::fs::read_to_string(&f).with_context(|| format!("reading {}", f.display()))?;
         serde_json::from_str(&text).with_context(|| format!("{} is not JSON", f.display()))
+    }
+
+    /// A file of the module's own beside the radio's file
+    /// (`<radio id>.<name>`), kept across upgrades with it: a device store.
+    pub fn file(&self, name: &str) -> PathBuf {
+        self.paths.radios.join(format!("{}.{name}", self.radio))
     }
 
     /// Replaces the radio's file, root-only, atomically. Keep `radio` and

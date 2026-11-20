@@ -152,6 +152,12 @@ impl Outbox {
         self.queue::<proto::Event>(key, "event", body);
     }
 
+    /// A network's links, on its coordinator's key: everything but `v`.
+    pub fn topology(&self, key: &str, mut body: Value) {
+        body["v"] = json!(1);
+        self.queue::<proto::Topology>(key, "topology", body);
+    }
+
     pub fn settings(&self, key: &str, values: serde_json::Map<String, Value>, by: &str) {
         self.queue::<proto::Settings>(
             key,

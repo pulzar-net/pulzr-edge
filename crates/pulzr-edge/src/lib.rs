@@ -10,3 +10,5 @@ pub mod outbox;
 pub mod radio;
 #[cfg(feature = "sim")]
 pub mod sim;
+#[cfg(feature = "zigbee")]
+pub mod zigbee;

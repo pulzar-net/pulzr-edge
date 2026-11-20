@@ -6,7 +6,7 @@
   "$defs": {
     "deviceKey": {
       "type": "string",
-      "pattern": "^(lorawan|ble|zigbee|ip|gw):[0-9a-f]{16}$|^zwave:[0-9a-f]{8}\\.([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-2][0-9]|23[0-2]|25[6-9]|2[6-9][0-9]|[3-9][0-9][0-9]|[1-3][0-9]{3}|4000)$|^modbus:[0-9a-f]{16}\\.[a-z0-9-]{1,32}\\.([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-3][0-9]|24[0-7])$|^ext:[a-z0-9-]{1,32}\\.[A-Za-z0-9._:-]{1,128}$"
+      "pattern": "^(lorawan|ble|zigbee|thread|ip|gw):[0-9a-f]{16}$|^zwave:[0-9a-f]{8}\\.([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-2][0-9]|23[0-2]|25[6-9]|2[6-9][0-9]|[3-9][0-9][0-9]|[1-3][0-9]{3}|4000)$|^modbus:[0-9a-f]{16}\\.[a-z0-9-]{1,32}\\.([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-3][0-9]|24[0-7])$|^ext:[a-z0-9-]{1,32}\\.[A-Za-z0-9._:-]{1,128}$"
     },
     "time": { "type": "number", "minimum": 0 },
     "zigbeeNwk": { "type": "string", "pattern": "^[0-9a-f]{4}$" },
@@ -83,7 +83,11 @@
             "lqi": { "type": "integer", "minimum": 0, "maximum": 255 },
             "rssi": { "type": "number" },
             "nwk": { "$ref": "#/$defs/zigbeeNwk" },
-            "last_hop": { "$ref": "#/$defs/zigbeeNwk" }
+            "last_hop": { "$ref": "#/$defs/zigbeeNwk" },
+            "dst_endpoint": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "group": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "command": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "manufacturer": { "type": "integer", "minimum": 0, "maximum": 65535 }
           },
           "additionalProperties": false
         },
@@ -163,6 +167,14 @@
         },
         "diag": { "type": "object" },
         "network": { "$ref": "#/$defs/network" },
+        "interview": {
+          "type": "object",
+          "properties": {
+            "zigbee": { "$ref": "#/$defs/zigbeeInterview" },
+            "zwave": { "$ref": "#/$defs/zwaveInterview" }
+          },
+          "additionalProperties": false
+        },
         "radios": {
           "type": "object",
           "properties": {
@@ -187,7 +199,115 @@
         "region": { "type": "string", "maxLength": 16 },
         "devices": { "type": "integer", "minimum": 0 },
         "joining_until": { "$ref": "#/$defs/time" },
-        "backup_at": { "$ref": "#/$defs/time" }
+        "backup_at": { "$ref": "#/$defs/time" },
+        "name": { "type": "string", "maxLength": 16 },
+        "role": { "enum": ["disabled", "detached", "child", "router", "leader"] },
+        "dataset_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "active_timestamp": { "type": "integer", "minimum": 0 },
+        "routers": { "type": "integer", "minimum": 0 },
+        "border_routers": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "zigbeeInterview": {
+      "type": "object",
+      "required": ["ieee", "endpoints"],
+      "properties": {
+        "ieee": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "nwk": { "$ref": "#/$defs/zigbeeNwk" },
+        "type": { "enum": ["router", "end_device"] },
+        "manufacturer_code": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "manufacturer_name": { "type": "string", "maxLength": 64 },
+        "model_id": { "type": "string", "maxLength": 64 },
+        "power_source": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "app_version": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "stack_version": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "zcl_version": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "hw_version": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "date_code": { "type": "string", "maxLength": 32 },
+        "build_id": { "type": "string", "maxLength": 32 },
+        "endpoints": {
+          "type": "array", "maxItems": 240,
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 1, "maximum": 254 },
+              "profile": { "type": "integer", "minimum": 0, "maximum": 65535 },
+              "device_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+              "in": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 65535 }, "maxItems": 128 },
+              "out": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 65535 }, "maxItems": 128 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "at": { "$ref": "#/$defs/time" },
+        "complete": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "zwaveInterview": {
+      "type": "object",
+      "required": ["manufacturer", "product_type", "product_id"],
+      "properties": {
+        "manufacturer": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "product_type": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "product_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "firmware": { "type": "string", "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}(\\.[0-9]{1,3})?$" },
+        "sdk": { "type": "string", "maxLength": 16 },
+        "security": { "enum": ["none", "s0", "s2_unauthenticated", "s2_authenticated", "s2_access_control"] },
+        "listening": { "type": "boolean" },
+        "endpoints": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "ccs": {
+          "type": "array", "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["cc"],
+            "properties": {
+              "cc": { "type": "integer", "minimum": 0, "maximum": 65535 },
+              "version": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "secure": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "at": { "$ref": "#/$defs/time" },
+        "complete": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "zigbeeZcl": {
+      "type": "object",
+      "required": ["endpoint", "cluster", "frame", "response"],
+      "properties": {
+        "endpoint": { "type": "integer", "minimum": 1, "maximum": 254 },
+        "src_endpoint": { "type": "integer", "minimum": 1, "maximum": 254 },
+        "cluster": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "profile": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "frame": { "type": "string", "contentEncoding": "base64", "maxLength": 1024 },
+        "response": { "type": "boolean" },
+        "timeout_ms": { "type": "integer", "minimum": 0, "maximum": 600000 },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    },
+    "zigbeeZdo": {
+      "type": "object",
+      "required": ["cluster", "payload", "response"],
+      "properties": {
+        "cluster": { "type": "integer", "minimum": 0, "maximum": 32767 },
+        "payload": { "type": "string", "contentEncoding": "base64", "maxLength": 1024 },
+        "response": { "type": "boolean" },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    },
+    "zigbeeWait": {
+      "type": "object",
+      "required": ["ms"],
+      "properties": {
+        "ms": { "type": "integer", "minimum": 0, "maximum": 600000 },
+        "label": { "type": "string", "maxLength": 96 }
       },
       "additionalProperties": false
     },
@@ -254,7 +374,10 @@
           "properties": {
             "lqi": { "type": "integer", "minimum": 0, "maximum": 255 },
             "rssi": { "type": "number" },
-            "snr": { "type": "number" }
+            "snr": { "type": "number" },
+            "lq_in": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "lq_out": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "cost": { "type": "integer", "minimum": 0, "maximum": 255 }
           },
           "additionalProperties": false
         },
@@ -287,6 +410,11 @@
         },
         "expires": { "$ref": "#/$defs/time" }
       },
+      "allOf": [
+        { "if": { "properties": { "name": { "const": "zigbee.zcl" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZcl" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "zigbee.zdo" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZdo" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "zigbee.wait" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeWait" } }, "required": ["params"] } }
+      ],
       "additionalProperties": false
     },
     "cmdResult": {

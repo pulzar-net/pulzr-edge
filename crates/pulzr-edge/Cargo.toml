@@ -6,8 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [features]
+default = ["zigbee"]
 # The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
 sim = ["tokio-modbus/tcp-server"]
+# Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
+# zigbee-bridge's stack: EmberZNet, Z-Stack and deCONZ dongles.
+zigbee = ["dep:zigbee-host", "dep:zigbee-bridge", "dep:zigbee-zcl", "dep:zigbee-zdo", "dep:zigbee-types"]
 
 [[bin]]
 name = "pulzr-edge"
@@ -36,16 +40,24 @@ tokio-serial = "5"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+zigbee-host = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+zigbee-bridge = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+zigbee-zdo = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2", optional = true }
+base64 = "0.22"
+hex = "0.4"
 
 # Bluetooth (`pulzr-edge ble`). bt-hci, which encodes HCI, builds for
 # little-endian machines only, so big-endian boards (mips) have no `ble`.
 [target.'cfg(target_endian = "little")'.dependencies]
-base64 = "0.22"
 bluetooth-adv = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0" }
 bluetooth-host = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag = "v0.1.0" }
-hex = "0.4"
 
 [dev-dependencies]
+zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
+zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
+zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "1fc2ba77e8c3747477f1fc4db2e0567962974af2" }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "time", "sync"] }
 tokio-modbus = { version = "0.17", default-features = false, features = ["tcp", "rtu", "tcp-server"] }
 tempfile = "3"

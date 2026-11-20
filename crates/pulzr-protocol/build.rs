@@ -5,11 +5,13 @@ fn main() {
     let text = fs::read_to_string("schema/protocol.schema.json").unwrap();
     let mut doc: serde_json::Value = serde_json::from_str(&text).unwrap();
     // Cross-field rules (`up` needs seq or dedup and r or raw; a refused or failed
-    // result needs a reason) are not representable as Rust types. They stay in the
-    // schema and are enforced by the jsonschema checks in this crate's tests.
+    // result needs a reason; a zigbee.* command's params) are not representable as
+    // Rust types. They stay in the schema and are enforced by the jsonschema checks
+    // in this crate's tests.
     let defs = doc["$defs"].as_object_mut().unwrap();
     for (name, keys) in [
         ("up", &["anyOf", "oneOf"][..]),
+        ("cmd", &["allOf"][..]),
         ("cmdResult", &["allOf"][..]),
     ] {
         let def = defs.get_mut(name).unwrap().as_object_mut().unwrap();
