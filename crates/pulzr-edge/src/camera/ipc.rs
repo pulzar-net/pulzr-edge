@@ -64,8 +64,8 @@ pub fn login_hex(s: &str) -> String {
     let des = Des::new_from_slice(b"WebLogin").expect("an 8-byte key");
     let mut bytes = s.as_bytes().to_vec();
     bytes.resize(bytes.len().div_ceil(8).max(1) * 8, 0);
-    for block in bytes.chunks_exact_mut(8) {
-        des.encrypt_block(block.try_into().expect("8 bytes"));
+    for block in bytes.as_chunks_mut::<8>().0 {
+        des.encrypt_block(block.into());
     }
     hex::encode(bytes)
 }

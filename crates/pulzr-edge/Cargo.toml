@@ -51,9 +51,9 @@ zigbee-bridge = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b2
 zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
 zigbee-zdo = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
 zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499", optional = true }
-zwave-host = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
-zwave-security = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
-zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b", optional = true }
+zwave-host = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.2.0", optional = true }
+zwave-security = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.2.0", optional = true }
+zwave-serial = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.2.0", optional = true }
 matter-controller = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", default-features = false, optional = true }
 matter-model = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", optional = true }
 base64 = "0.22"
@@ -72,7 +72,7 @@ bluetooth-host = { git = "https://github.com/pulzar-net/bluetooth-bridge", tag =
 
 [dev-dependencies]
 sha2 = "0.11"
-zwave-sim = { git = "https://github.com/pulzar-net/zwave-bridge", rev = "01d33e02e0c51acb829952d05cc8dc7f0a50629b" }
+zwave-sim = { git = "https://github.com/pulzar-net/zwave-bridge", tag = "v0.2.0" }
 zigbee-sim = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }
 zigbee-types = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }
 zigbee-zcl = { git = "https://github.com/pulzar-net/zigbee-bridge", rev = "b21cb90d92b6195519a60b71898d656d8c00a499" }

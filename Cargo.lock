@@ -4818,7 +4818,7 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 [[package]]
 name = "zwave-cc"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
 dependencies = [
  "crc",
  "serde",
@@ -4829,7 +4829,7 @@ dependencies = [
 [[package]]
 name = "zwave-host"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
 dependencies = [
  "hex",
  "ihex",
@@ -4847,7 +4847,7 @@ dependencies = [
 [[package]]
 name = "zwave-security"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
 dependencies = [
  "aes",
  "cbc-mac",
@@ -4879,7 +4879,7 @@ dependencies = [
 [[package]]
 name = "zwave-serial"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
 dependencies = [
  "bytes",
  "futures-util",
@@ -4893,7 +4893,7 @@ dependencies = [
 [[package]]
 name = "zwave-sim"
 version = "0.2.0"
-source = "git+https://github.com/pulzar-net/zwave-bridge?rev=01d33e02e0c51acb829952d05cc8dc7f0a50629b#01d33e02e0c51acb829952d05cc8dc7f0a50629b"
+source = "git+https://github.com/pulzar-net/zwave-bridge?tag=v0.2.0#a587da65dac642e104eff3e44f7dd11a81e3450b"
 dependencies = [
  "bytes",
  "futures-util",
