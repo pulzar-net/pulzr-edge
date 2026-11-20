@@ -128,6 +128,30 @@ impl Outbox {
         self.queue::<proto::State>(key, "state", body);
     }
 
+    /// A `state` whose body (everything but `v`) a module built itself: a
+    /// coordinator's `network`, a joined device's `interview`.
+    pub fn state_body(&self, key: &str, mut body: Value) {
+        body["v"] = json!(1);
+        self.queue::<proto::State>(key, "state", body);
+    }
+
+    /// An `event`: `name` as the protocol's pattern allows, `data` free-form.
+    /// Never a key in `data`; events are logged and kept by the platform.
+    pub fn event(&self, key: &str, name: &str, data: Value, sev: Option<&str>) {
+        let seq = match self.0.seq.lock().unwrap().next(key) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!(error = %e, "cannot persist seq");
+                return;
+            }
+        };
+        let mut body = json!({ "v": 1, "seq": seq, "ts": now(), "name": name, "data": data });
+        if let Some(s) = sev {
+            body["sev"] = json!(s);
+        }
+        self.queue::<proto::Event>(key, "event", body);
+    }
+
     pub fn settings(&self, key: &str, values: serde_json::Map<String, Value>, by: &str) {
         self.queue::<proto::Settings>(
             key,

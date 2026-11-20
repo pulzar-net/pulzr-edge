@@ -231,6 +231,25 @@ Tests: `tests/ble.rs` checks the bodies against the protocol schema, and runs
 the module end to end against Google's Bumble (a virtual controller and a
 scripted KKM beacon, `tests/bumble/beacon.py`) in CI.
 
+## Radio modules
+
+`pulzr-edge radio serve <radio id> <config>` runs one coordinator, a Zigbee
+or Z-Wave network on a radio pulzr-probe found, as a process of its own with
+its own buffer and MQTT session (client id `<adapter>-<radio id>`). Its
+protocol and keys are in `/etc/pulzr-edge/radios/<radio id>.json` (0600), its
+port comes from pulzr-probe's report, and it is driven through a root-only
+control socket, `/var/run/pulzr-edge/radio/<radio id>.sock`:
+
+```sh
+echo '{"seconds": 180}' | pulzr-edge radio usb-10c4_ea60-9e2adbd1 permit
+```
+
+Params come on stdin, never the command line, because they may carry a key.
+Every change comes from a person through the gateway's console API, never
+MQTT. The ops, events, backups and the person-only rule are the contract in
+PulzrOS's [docs/radio-modules.md](https://github.com/Pulzr/PulzrOS/blob/main/docs/radio-modules.md);
+a stack implements `radio::RadioModule` and adds itself to `radio::factory`.
+
 ## pulzr-probe
 
 What radios are plugged into this gateway, for PulzrOS's claim report and its

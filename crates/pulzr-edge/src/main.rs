@@ -18,6 +18,7 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         Some("--help" | "-h") | None => usage(),
+        Some("radio") => return radio(args.collect()).await,
         Some("ble") => match args.next() {
             Some(p) => (true, p.into()),
             None => usage(),
@@ -132,8 +133,67 @@ async fn main() -> Result<()> {
 }
 
 fn usage() -> ! {
-    eprintln!("usage: pulzr-edge <config.toml>       Modbus\n       pulzr-edge ble <config.toml>   Bluetooth LE ([ble] in the config)");
+    eprintln!(
+        "usage: pulzr-edge <config.toml>                       Modbus
+       pulzr-edge ble <config.toml>                   Bluetooth LE ([ble] in the config)
+       pulzr-edge radio serve <radio id> <config.toml>  a radio module (docs/radio-modules.md in PulzrOS)
+       pulzr-edge radio <radio id> <op> < params.json   one op, as the console API sends it"
+    );
     std::process::exit(2);
+}
+
+/// `pulzr-edge radio`: run a radio's module, or send it one op. The op's
+/// params come on stdin, never the command line, because they may carry a
+/// network key. Prints the result; on a refusal prints the reason on stderr
+/// and exits 2 (bad request), 1 (refused or busy) or 3 (no module running).
+async fn radio(args: Vec<String>) -> Result<()> {
+    use pulzr_edge::radio::{self, control, Paths};
+    let mut paths = Paths::default();
+    if let Ok(run) = std::env::var("PULZR_EDGE_RUN") {
+        paths.run = run.into();
+    }
+    match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+        ["serve", id, config] => {
+            let cfg = Config::load(std::path::Path::new(config))?;
+            let filter = tracing_subscriber::EnvFilter::try_new(&cfg.log.level)
+                .unwrap_or_else(|_| "info".into());
+            tracing_subscriber::fmt().with_env_filter(filter).init();
+            radio::serve(cfg, id, paths).await
+        }
+        [id, op] if radio::valid_radio_id(id) => {
+            use std::io::Read;
+            let mut input = String::new();
+            std::io::stdin().read_to_string(&mut input)?;
+            let params: serde_json::Value = if input.trim().is_empty() {
+                serde_json::json!({})
+            } else {
+                match serde_json::from_str(&input) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        eprintln!("The request is not JSON.");
+                        std::process::exit(2);
+                    }
+                }
+            };
+            let answer = control::ask(&paths.socket(id), id, op, params).await;
+            if answer["ok"] == true {
+                println!("{}", answer["result"]);
+                return Ok(());
+            }
+            eprintln!(
+                "{}",
+                answer["error"]
+                    .as_str()
+                    .unwrap_or("The radio module refused.")
+            );
+            std::process::exit(match answer["code"].as_str() {
+                Some("bad-request") => 2,
+                Some("no-module") => 3,
+                _ => 1,
+            });
+        }
+        _ => usage(),
+    }
 }
 
 /// `pulzr-edge ble`: the gateway's Bluetooth controller, as its own process
