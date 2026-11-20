@@ -140,10 +140,11 @@ pub fn up_body(h: &Heard, via: &str, parsed: bool) -> Value {
         data.extend_from_slice(r);
     }
     let mut ble = serde_json::Map::new();
+    // The PDU in `adv`, never in `adv_type`: the protocol's `adv_type` is the
+    // class a gateway reported (a KGateway's), which the platform passes to
+    // the device type's codec as fPort. A gateway that only hears the radio
+    // has no class to report, as PulzrOS's shell scanner never did.
     ble.insert("adv".into(), json!(h.kind));
-    if let Some(t) = h.adv_type {
-        ble.insert("adv_type".into(), json!(t));
-    }
     if let Some(p) = h.tx_power {
         ble.insert("tx_power".into(), json!(p));
     }

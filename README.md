@@ -212,7 +212,7 @@ buffer under `state_dir/ble` and its own MQTT session (client id
   private address resolves to, with `fffe` in the middle). Once per
   `interval_secs` it gets one `up`: the latest advertising data (and scan
   response) as `raw`, the best RSSI of the interval in `rx`, and `link.ble`
-  (`adv`, `adv_type` for legacy PDUs, `tx_power`, and with `parsed = true`
+  (`adv`, the PDU kind such as `adv_nonconn_ind`; `tx_power`; and with `parsed = true`
   every AD field and decoded beacon). The platform's BLE stage decodes `raw`
   as it does for every adapter.
 - The controller is the device `ble:<its EUI-64>`: `state` online while the

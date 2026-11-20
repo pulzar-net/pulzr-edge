@@ -23,8 +23,6 @@ pub struct Heard {
     pub rssi: i8,
     /// TX power from the extended header, dBm.
     pub tx_power: Option<i8>,
-    /// The legacy PDU type (0 ADV_IND ... 3 ADV_NONCONN_IND) for legacy advertising.
-    pub adv_type: Option<u8>,
     /// What kind of advertisement: `adv_ind`, `adv_scan_ind`, `adv_nonconn_ind`,
     /// `adv_direct_ind`, or `ext_*` for extended advertising.
     pub kind: &'static str,
@@ -39,15 +37,15 @@ impl Heard {
     }
 }
 
-fn kind(r: &Report) -> (&'static str, Option<u8>) {
+fn kind(r: &Report) -> &'static str {
     match (r.legacy, r.connectable, r.scannable, r.directed) {
-        (true, true, _, true) => ("adv_direct_ind", Some(1)),
-        (true, true, _, false) => ("adv_ind", Some(0)),
-        (true, false, true, _) => ("adv_scan_ind", Some(2)),
-        (true, false, false, _) => ("adv_nonconn_ind", Some(3)),
-        (false, true, _, _) => ("ext_connectable", None),
-        (false, false, true, _) => ("ext_scannable", None),
-        (false, false, false, _) => ("ext_nonconn", None),
+        (true, true, _, true) => "adv_direct_ind",
+        (true, true, _, false) => "adv_ind",
+        (true, false, true, _) => "adv_scan_ind",
+        (true, false, false, _) => "adv_nonconn_ind",
+        (false, true, _, _) => "ext_connectable",
+        (false, false, true, _) => "ext_scannable",
+        (false, false, false, _) => "ext_nonconn",
     }
 }
 
@@ -91,7 +89,7 @@ impl Window {
             self.dropped += 1;
             return;
         }
-        let (kind, adv_type) = kind(r);
+        let kind = kind(r);
         let h = self.heard.entry(device).or_insert_with(|| Heard {
             address: r.address,
             identity: r.identity,
@@ -99,7 +97,6 @@ impl Window {
             scan_response: None,
             rssi: r.rssi,
             tx_power: None,
-            adv_type,
             kind,
             ts,
         });
@@ -111,7 +108,6 @@ impl Window {
         }
         h.rssi = h.rssi.max(r.rssi);
         h.tx_power = r.tx_power.or(h.tx_power);
-        h.adv_type = adv_type;
         h.kind = kind;
         h.ts = ts;
     }
@@ -169,7 +165,7 @@ mod tests {
         let v = w.drain();
         assert_eq!(v.len(), 1);
         assert_eq!((v[0].data.clone(), v[0].rssi, v[0].ts), (vec![3], -60, 3.0));
-        assert_eq!((v[0].kind, v[0].adv_type), ("adv_nonconn_ind", Some(3)));
+        assert_eq!(v[0].kind, "adv_nonconn_ind");
         assert!(w.drain().is_empty(), "a new interval starts empty");
     }
 }

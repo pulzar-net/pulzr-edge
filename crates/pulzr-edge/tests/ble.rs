@@ -91,7 +91,11 @@ fn up_matches_the_protocol() {
         );
         assert_eq!(body["rx"][0]["via"], format!("gw:{EUI}"));
         assert_eq!(body["rx"][0]["rssi"].as_f64(), Some(-61.0));
-        assert_eq!(body["link"]["ble"]["adv_type"], 3);
+        assert_eq!(body["link"]["ble"]["adv"], "adv_nonconn_ind");
+        assert!(
+            body["link"]["ble"].get("adv_type").is_none(),
+            "no class: fPort 0, as before"
+        );
         assert_eq!(body["link"]["ble"]["tx_power"], -4);
         if parsed {
             assert_eq!(body["link"]["ble"]["parsed"]["beacons"][0]["format"], "kkm");
