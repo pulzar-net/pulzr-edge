@@ -17,6 +17,26 @@ use zwave_sim::{SimConfig, SimHandle, Simulator};
 const RADIO: &str = "usb-0658_0200-sim";
 const NETWORK: &str = "7a1e0c2b-0000-4000-8000-000000000002";
 
+/// Serves `body` once over HTTP on loopback, as a signed link would.
+async fn serve_once(body: Vec<u8>) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/fw/s.gbl?sig=abc", l.local_addr().unwrap());
+    tokio::spawn(async move {
+        let (mut s, _) = l.accept().await.unwrap();
+        let mut req = [0u8; 2048];
+        let _ = s.read(&mut req).await;
+        let head = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        let _ = s.write_all(head.as_bytes()).await;
+        let _ = s.write_all(&body).await;
+        let _ = s.shutdown().await;
+    });
+    url
+}
+
 struct Rig {
     sim: SimHandle,
     module: std::sync::Arc<dyn RadioModule>,
@@ -65,7 +85,8 @@ async fn rig() -> Rig {
             SecurityClass::S2Unauthenticated,
         ],
     ))
-    .with_node(NodeSpec::smartstart_sensor("smartstart"));
+    .with_node(NodeSpec::smartstart_sensor("smartstart"))
+    .with_node(NodeSpec::long_range_sensor("lr"));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let (htx, hrx) = tokio::sync::oneshot::channel();
@@ -431,19 +452,92 @@ async fn zwave_network_end_to_end() {
 
     // SmartStart: provisioned from the console, joins when powered on.
     let dsk = NodeSpec::smartstart_sensor("x").dsk().to_string();
+    let lr_dsk = NodeSpec::long_range_sensor("x").dsk().to_string();
     let r = rig
         .call(
             "provision",
-            json!({ "entries": [ { "dsk": dsk, "classes": ["s2_authenticated", "s2_unauthenticated"], "protocol": "zwave", "name": "hall" } ] }),
+            json!({ "entries": [
+                { "dsk": dsk, "classes": ["s2_authenticated", "s2_unauthenticated"], "protocol": "zwave", "name": "hall" },
+                { "dsk": lr_dsk, "classes": ["s2_authenticated"], "protocol": "lr", "name": "lot" },
+            ] }),
         )
         .await;
-    assert_eq!(r["count"], 1);
+    assert_eq!(r["count"], 2);
     let from = rig.mark();
     assert!(rig.sim.power_on("smartstart").await);
     let joined = rig.event(from, "network.joined", |_| true).await;
     let ss = joined["device"].as_str().unwrap().to_string();
     rig.event(from, "network.interview", |d| d["device"] == ss.as_str())
         .await;
+
+    // Long Range: a 16-bit node id, and a star in `topology`.
+    let from = rig.mark();
+    assert!(rig.sim.power_on("lr").await);
+    let joined = rig.event(from, "network.joined", |_| true).await;
+    let lr = joined["device"].as_str().unwrap().to_string();
+    let lr_node: u16 = lr.rsplit('.').next().unwrap().parse().unwrap();
+    assert!(lr_node >= 256, "{lr}");
+    rig.event(from, "network.interview", |d| d["device"] == lr.as_str())
+        .await;
+    rig.wait_from(from, "/topology", |_, v| {
+        v["edges"].as_array().unwrap().iter().any(|e| {
+            e["kind"] == "route" && e["from"] == lr.as_str() && e["to"] == coordinator.as_str()
+        })
+    })
+    .await;
+
+    // `map`: a scan of every listening node's neighbors, the LR star included.
+    let from = rig.mark();
+    let m = rig.call("map", json!({})).await;
+    assert_eq!(m["started"], true);
+    assert!(m["requests"].as_u64().unwrap() >= 2, "{m}");
+    let (_, scan) = rig
+        .wait_from(from, "/topology", |_, v| v["source"] == "scan")
+        .await;
+    assert_eq!(scan["complete"], true);
+    assert!(scan["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["from"] == lr.as_str() && e["kind"] == "route"));
+
+    // Firmware from a link the platform signed, with state.ota as it goes.
+    let image: Vec<u8> = (0..3000u32).map(|i| (i * 31 % 251) as u8).collect();
+    let url = serve_once(image.clone()).await;
+    let sum = {
+        use sha2::Digest;
+        hex::encode(sha2::Sha256::digest(&image))
+    };
+    let from = rig.mark();
+    rig.command(
+        &s2,
+        "cmd-fw-0001",
+        "zwave.firmware",
+        json!({ "url": "ftp://x/y", "sha256": sum, "name": "s.gbl" }),
+    );
+    let r = rig.cmd_res(from, "cmd-fw-0001", "refused").await;
+    assert_eq!(r["reason"], "invalid");
+    rig.command(
+        &s2,
+        "cmd-fw-0002",
+        "zwave.firmware",
+        json!({ "url": url, "sha256": sum, "name": "s.gbl", "version": "2.1" }),
+    );
+    let r = rig
+        .wait_from(from, "/cmd/res", |_, v| {
+            v["id"] == "cmd-fw-0002" && v["status"] != "queued"
+        })
+        .await
+        .1;
+    assert_eq!(r["status"], "ok", "{r}");
+    for phase in ["downloading", "staged", "installing", "confirmed"] {
+        rig.wait_from(from, "/state", |t, v| {
+            t.ends_with(&format!("/d/{s2}/state")) && v["ota"]["phase"] == phase
+        })
+        .await;
+    }
+    let got = rig.sim.inspect("s2", |n| n.firmware.clone()).await.unwrap();
+    assert_eq!(got, image, "the node holds the image");
 
     // Topology on the coordinator's key, from the routes in use.
     let (_, topo) = rig

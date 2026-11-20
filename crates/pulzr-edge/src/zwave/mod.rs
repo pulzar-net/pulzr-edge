@@ -7,7 +7,8 @@
 //! network goes out as protocol v1 on keys `zwave:<home id>.<node id>`:
 //! readings as `up` with `link.zwave`, nodes' `state` with their interview,
 //! the coordinator's `state.network`, `event`s and `topology`. Device intents
-//! (`settings.set`, `zwave.set`, `zwave.device_file`, `zwave.ping`) arrive
+//! (`settings.set`, `zwave.set`, `zwave.device_file`, `zwave.ping`,
+//! `zwave.firmware`, an image fetched from a signed link) arrive
 //! as `cmd` and answer `queued` while a sleeping node is asleep.
 //!
 //! The radio's file holds the platform's network id, the region and the
@@ -225,6 +226,10 @@ struct St {
     topology_due: bool,
     /// Settable values by node and field id, for `zwave.set`.
     writable: HashMap<(NodeId, String), (ValueId, ValueKind)>,
+    /// A `map` walk is running.
+    mapping: bool,
+    /// Firmware updates running: the version and the last tenth reported.
+    firmware: HashMap<NodeId, (Option<String>, u16)>,
     error: Option<String>,
 }
 
@@ -258,6 +263,8 @@ pub fn start(ctx: RadioCtx) -> anyhow::Result<Arc<dyn RadioModule>> {
             last_backup: Instant::now(),
             topology_due: false,
             writable: HashMap::new(),
+            firmware: HashMap::new(),
+            mapping: false,
             error: None,
         }),
     });
@@ -560,7 +567,14 @@ impl ZWave {
     fn on_event(&self, c: &Controller, home: u32, e: Event) {
         let out = &self.ctx.out;
         match e {
-            Event::Ready(_) | Event::InclusionStarted | Event::InclusionStopped => {}
+            Event::InclusionStarted => {
+                let until = self.st.lock().unwrap().joining_until;
+                if let Some(until) = until {
+                    self.event("network.permit", json!({ "until": until, "via": null }));
+                    self.publish_network();
+                }
+            }
+            Event::Ready(_) | Event::InclusionStopped => {}
             Event::ExclusionStarted | Event::ExclusionStopped => {}
             Event::NodeAdded { node } => {
                 self.event(
@@ -680,6 +694,27 @@ impl ZWave {
             Event::Command { node, command, .. } => {
                 tracing::debug!(node, cc = command.cc(), "command not turned into a value");
             }
+            Event::FirmwareUpdateProgress { node, sent, total } if total > 0 => {
+                // `state.ota` every tenth of the way, not every fragment.
+                let tenth = sent.saturating_mul(10) / total;
+                let version = {
+                    let mut st = self.st.lock().unwrap();
+                    match st.firmware.get_mut(&node) {
+                        Some((v, last)) if tenth > *last => {
+                            *last = tenth;
+                            Some(v.clone())
+                        }
+                        _ => None,
+                    }
+                };
+                if let Some(v) = version {
+                    let mut o = json!({ "phase": "installing", "progress": f64::from(sent) / f64::from(total) });
+                    if let Some(v) = v {
+                        o["version"] = json!(v);
+                    }
+                    out.state_body(&key(home, node), json!({ "ota": o }));
+                }
+            }
             Event::FirmwareUpdateProgress { .. } | Event::FirmwareUpdateFinished { .. } => {}
             Event::ProvisioningChanged { .. } => {}
         }
@@ -725,7 +760,7 @@ impl ZWave {
 
     /// The network's links on the coordinator's key: neighbors from the
     /// controller's routing table, routes from the last transmissions.
-    fn publish_topology(&self, c: &Controller, home: u32) {
+    fn publish_topology(&self, c: &Controller, home: u32, source: &str) {
         let t = c.topology();
         let ts = now();
         let mut edges = Vec::new();
@@ -741,7 +776,13 @@ impl ZWave {
             if n.id == t.controller {
                 continue;
             }
-            let Some(reps) = &n.last_route else { continue };
+            // Long Range is a star: each node talks to the controller directly.
+            let direct = Vec::new();
+            let reps = match &n.last_route {
+                Some(r) if !zwave_host::is_long_range(n.id) => r,
+                _ if zwave_host::is_long_range(n.id) => &direct,
+                _ => continue,
+            };
             let mut path = vec![n.id];
             path.extend(reps.iter().rev());
             path.push(t.controller);
@@ -758,7 +799,7 @@ impl ZWave {
         edges.truncate(2000);
         self.ctx.out.topology(
             &key(home, t.controller),
-            json!({ "ts": ts, "protocol": "zwave", "source": "passive", "complete": true, "edges": edges }),
+            json!({ "ts": ts, "protocol": "zwave", "source": source, "complete": true, "edges": edges }),
         );
     }
 
@@ -787,7 +828,7 @@ impl ZWave {
                 (c, home, topology, backup)
             };
             if topology {
-                self.publish_topology(&c, home);
+                self.publish_topology(&c, home, "passive");
             }
             if backup {
                 match self.take_backup(&c).await {
@@ -886,6 +927,7 @@ impl ZWave {
             "remove" => self.remove(p).await,
             "replace" => self.replace(p),
             "region" => self.set_region(p).await,
+            "map" => self.map(),
             "scan" | "channel" => Err(refused(
                 "Z-Wave has no channels: the region sets its frequencies.",
             )),
@@ -1161,8 +1203,8 @@ impl ZWave {
             st.joining_until = Some(until);
             st.inclusion = None;
         }
-        self.event("network.permit", json!({ "until": until, "via": null }));
-        self.publish_network();
+        // `network.permit` goes out when the controller is in inclusion mode
+        // (Event::InclusionStarted), so a button pressed after it is heard.
         let me = self.me();
         tokio::spawn(async move {
             let r = c
@@ -1185,6 +1227,45 @@ impl ZWave {
             me.publish_network();
         });
         Ok(json!({ "until": until, "request": self.st.lock().unwrap().request }))
+    }
+
+    /// `map`: reads every listening node's neighbor table from the
+    /// controller, one request at a time, then publishes the whole topology
+    /// as a scan. Long Range nodes have none; they are a star to the controller.
+    fn map(&self) -> Result<Value, RadioError> {
+        let c = self.controller()?;
+        let home = c.info().home_id;
+        let nodes: Vec<NodeId> = c
+            .nodes()
+            .into_iter()
+            .filter(|r| r.id != c.info().node_id)
+            .filter(|r| !r.protocol.sleeping() && !zwave_host::is_long_range(r.id))
+            .map(|r| r.id)
+            .collect();
+        {
+            let mut st = self.st.lock().unwrap();
+            if st.busy || !st.firmware.is_empty() {
+                return Err(RadioError::Busy(
+                    "An inclusion or a firmware update is running.".into(),
+                ));
+            }
+            if st.mapping {
+                return Err(RadioError::Busy("A map is already running.".into()));
+            }
+            st.mapping = true;
+        }
+        let me = self.me();
+        let n = nodes.len();
+        tokio::spawn(async move {
+            for node in nodes {
+                if let Err(e) = c.refresh_neighbors(node).await {
+                    tracing::debug!(node, error = %e, "routing info not read");
+                }
+            }
+            me.st.lock().unwrap().mapping = false;
+            me.publish_topology(&c, home, "scan");
+        });
+        Ok(json!({ "started": true, "requests": n }))
     }
 
     fn end_inclusion(&self) {
@@ -1477,6 +1558,13 @@ impl ZWave {
                 }
             }
             "zwave.ping" => Job::Ping,
+            "zwave.firmware" => match serde_json::from_value::<Firmware>(params.clone()) {
+                Ok(f) => match f.check() {
+                    Ok(()) => Job::Firmware(f),
+                    Err(e) => return res("refused", Some("invalid"), Some(&e)),
+                },
+                Err(e) => return res("refused", Some("invalid"), Some(&e.to_string())),
+            },
             _ => {
                 return res(
                     "refused",
@@ -1506,6 +1594,7 @@ impl ZWave {
                     .map_err(|e| e.to_string())
                     .map(|_| None),
                 Job::Ping => Ok(Some(json!({ "alive": c.ping(node).await }))),
+                Job::Firmware(f) => me.firmware(&c, home, node, f).await,
             };
             match r {
                 Ok(data) => {
@@ -1534,6 +1623,97 @@ impl ZWave {
                 }
             }
         });
+    }
+
+    /// Fetches, checks and sends a firmware image, with `state.ota` as it goes.
+    async fn firmware(
+        &self,
+        c: &Controller,
+        home: u32,
+        node: NodeId,
+        f: &Firmware,
+    ) -> Result<Option<Value>, String> {
+        let dev = key(home, node);
+        let ota = |phase: &str, progress: Option<f64>, error: Option<&str>| {
+            let mut o = json!({ "phase": phase });
+            if let Some(v) = &f.version {
+                o["version"] = json!(v);
+            }
+            if let Some(p) = progress {
+                o["progress"] = json!(p);
+            }
+            if let Some(e) = error {
+                o["error"] = json!(e);
+            }
+            self.ctx.out.state_body(&dev, json!({ "ota": o }));
+        };
+        ota("downloading", None, None);
+        let r = async {
+            let bytes = self.fetch(&f.url).await?;
+            let sum = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&bytes));
+            if !sum.eq_ignore_ascii_case(&f.sha256) {
+                return Err("the file's SHA-256 does not match".to_string());
+            }
+            let image = zwave_host::firmware::read_image(&f.name, &bytes)?;
+            ota("staged", None, None);
+            self.st
+                .lock()
+                .unwrap()
+                .firmware
+                .insert(node, (f.version.clone(), 0));
+            let r = c
+                .update_firmware(node, &image, f.target)
+                .await
+                .map_err(|e| e.to_string())?;
+            if !r.success() {
+                return Err(format!(
+                    "the device refused the image (status {:#04x})",
+                    r.status
+                ));
+            }
+            Ok(json!({ "status": r.status, "wait_time": r.wait_time }))
+        }
+        .await;
+        self.st.lock().unwrap().firmware.remove(&node);
+        match r {
+            Ok(data) => {
+                ota("confirmed", Some(1.0), None);
+                Ok(Some(data))
+            }
+            Err(e) => {
+                ota("failed", None, Some(&e));
+                Err(e)
+            }
+        }
+    }
+
+    /// Downloads a firmware file with the system's curl, bounded in size and time.
+    async fn fetch(&self, url: &str) -> Result<Vec<u8>, String> {
+        let dir = self.ctx.file("zwave");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("firmware-{}.tmp", random_id()));
+        let out = tokio::process::Command::new("curl")
+            .args(["-fsSL", "--proto", "=https,http", "--max-time", "600"])
+            .args(["--max-filesize", &FIRMWARE_FILE_MAX.to_string(), "-o"])
+            .arg(&path)
+            .arg(url)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .output()
+            .await;
+        let read = std::fs::read(&path);
+        let _ = std::fs::remove_file(&path);
+        match out {
+            Ok(o) if o.status.success() => read.map_err(|e| e.to_string()),
+            // curl's message names the URL, which is a signed link: keep it out.
+            Ok(o) => Err(format!(
+                "the download failed (curl exit {})",
+                o.status.code().unwrap_or(-1)
+            )),
+            Err(e) => Err(format!("curl did not run: {e}")),
+        }
     }
 
     /// Writes settings with the device's Z-Wave JS file when the platform
@@ -1605,7 +1785,44 @@ enum Job {
     Settings(Vec<(String, i64)>),
     Set(ValueId, ValueKind),
     Ping,
+    Firmware(Firmware),
 }
+
+/// `zwave.firmware`: an image the platform stored, fetched by the gateway.
+#[derive(serde::Deserialize)]
+struct Firmware {
+    /// `https://` (a signed link; never logged). Plain `http://` only to
+    /// the gateway itself, for tests.
+    url: String,
+    /// Hex SHA-256 of the file.
+    sha256: String,
+    /// The file's name: `.hex` is converted, others sent as they are.
+    name: String,
+    #[serde(default)]
+    target: u8,
+    /// The version the image carries, for `state.ota`.
+    #[serde(default)]
+    version: Option<String>,
+}
+
+impl Firmware {
+    fn check(&self) -> Result<(), String> {
+        let loopback = ["http://127.0.0.1:", "http://localhost:", "http://[::1]:"];
+        if !self.url.starts_with("https://") && !loopback.iter().any(|p| self.url.starts_with(p)) {
+            return Err("url must be https".into());
+        }
+        if self.sha256.len() != 64 || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("sha256 must be 64 hex digits".into());
+        }
+        if self.name.is_empty() || self.name.len() > 128 || self.name.contains('/') {
+            return Err("name must be the file's name".into());
+        }
+        Ok(())
+    }
+}
+
+/// Largest firmware file fetched (an Intel HEX of the largest image).
+const FIRMWARE_FILE_MAX: usize = 3 * 8 * 1024 * 1024;
 
 /// `settings.set` params: parameter key (`"3"`, `"41[0xf00]"`) to an integer.
 fn settings(p: &Value) -> Result<Vec<(String, i64)>, String> {
