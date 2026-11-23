@@ -516,7 +516,7 @@ impl MatterModule {
             return res(
                 "refused",
                 Some("unknown"),
-                Some("fabric operations come only from Pulzar Net's console"),
+                Some("fabric operations come only from Pulzr Net's console"),
                 None,
             );
         }

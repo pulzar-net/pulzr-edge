@@ -1,7 +1,7 @@
 # pulzr-edge
 
-The Rust daemon that runs on a PulzarOS gateway and speaks the
-[Pulzar protocol](https://github.com/pulzar-net/pulzr-protocol) for the devices
+The Rust daemon that runs on a PulzrOS gateway and speaks the
+[Pulzr protocol](https://github.com/pulzar-net/pulzr-protocol) for the devices
 behind the gateway. One program, one MQTT 5 session to the platform broker, a
 module per bus. The first module is **Modbus RTU and Modbus TCP**; Bluetooth and
 Zigbee follow as further modules.
@@ -13,7 +13,7 @@ Zigbee follow as further modules.
             cmd / cmd/res ───┘   settings.set, register.write
 ```
 
-Not deployed anywhere yet. PulzarOS packages it (see "Before it can ship" below).
+Not deployed anywhere yet. PulzrOS packages it (see "Before it can ship" below).
 
 ## What it does
 
@@ -235,7 +235,7 @@ scripted KKM beacon, `tests/bumble/beacon.py`) in CI.
 
 Requests to devices on the gateway's LAN, made for their device type's codec
 (pulzr-protocol README, "IP requests"): `ip.http`, `ip.tcp` and `ip.udp` for
-an `ext:` key, in order per device. The codec runs in Pulzar and knows the
+an `ext:` key, in order per device. The codec runs in Pulzr and knows the
 device (an IP camera's settings API); this knows nothing about any device. It
 runs as its own process, `pulzr-edge ip <config.toml>`, with its own buffer
 under `state_dir/ip` and its own MQTT session (client id `<adapter>-ip`).
@@ -368,7 +368,7 @@ Gateways run musl, and the release binaries are static. A tag `v<version>`
 whole test suite for each target under qemu-user, builds, and publishes the
 binaries with a `SHA256SUMS`:
 
-| Asset | Target | PulzarOS arch |
+| Asset | Target | PulzrOS arch |
 |---|---|---|
 | `pulzr-edge-aarch64-linux-musl` | `aarch64-unknown-linux-musl` | `aarch64_cortex-a53`, `-a72`, `-a76` (Pi 3, 4, 5) |
 | `pulzr-edge-mipsel-linux-musl` | `mipsel-unknown-linux-musl` | `mipsel_24kc` (RAK7268, RAK7289, GL-SFT1200) |
@@ -394,9 +394,9 @@ RUSTFLAGS="-C target-feature=+crt-static -C link-self-contained=no" \
 slower handshakes, same results. The release workflow pins the nightly it was
 tested with.
 
-## Before it can ship as a PulzarOS package
+## Before it can ship as a PulzrOS package
 
-- In an image: PulzarOS has the package (`feed/pulzr-edge`, this repository's
+- In an image: PulzrOS has the package (`feed/pulzr-edge`, this repository's
   release binaries by checksum, started only once `/etc/pulzr-edge/config.toml`
   exists, kept across upgrades), but no board includes it yet. That waits for
   the console side below.

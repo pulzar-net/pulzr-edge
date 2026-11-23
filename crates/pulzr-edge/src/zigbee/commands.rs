@@ -187,7 +187,7 @@ impl Queues {
                 &id,
                 "refused",
                 Some("unknown"),
-                Some("network operations come from Pulzar Net's console"),
+                Some("network operations come from Pulzr Net's console"),
                 None,
             );
         }

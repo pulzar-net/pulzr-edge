@@ -1,10 +1,10 @@
 # Static musl binaries for the gateways, on a tag.
 #
-#   aarch64-unknown-linux-musl   Pi 3, 4 and 5 (PulzarOS aarch64_cortex-a53/a72/a76)
-#   mipsel-unknown-linux-musl    RAK7268/7289, GL-SFT1200 (PulzarOS mipsel_24kc)
-#   mips-unknown-linux-musl      Dragino LPS8N (PulzarOS mips_24kc)
+#   aarch64-unknown-linux-musl   Pi 3, 4 and 5 (PulzrOS aarch64_cortex-a53/a72/a76)
+#   mipsel-unknown-linux-musl    RAK7268/7289, GL-SFT1200 (PulzrOS mipsel_24kc)
+#   mips-unknown-linux-musl      Dragino LPS8N (PulzrOS mips_24kc)
 #
-# PulzarOS stages them like ChirpStack's: its feed/pulzr-edge/fetch downloads
+# PulzrOS stages them like ChirpStack's: its feed/pulzr-edge/fetch downloads
 # one by name from this release and checks it against SHA256SUMS.
 #
 # mipsel and mips are tier 3 targets: no prebuilt std, so it builds std itself on a

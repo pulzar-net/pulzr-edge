@@ -1,6 +1,6 @@
 [package]
 name = "pulzr-probe"
-description = "Names the radios plugged into a PulzarOS gateway from sysfs and a table of known adapters, and probes only what it can name"
+description = "Names the radios plugged into a PulzrOS gateway from sysfs and a table of known adapters, and probes only what it can name"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

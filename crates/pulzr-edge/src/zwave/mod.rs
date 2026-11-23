@@ -1501,7 +1501,7 @@ impl ZWave {
                 return res(
                     "refused",
                     Some("unknown"),
-                    Some("network operations come only from Pulzar Net's console"),
+                    Some("network operations come only from Pulzr Net's console"),
                 );
             }
             Some((h, n)) if h == home && c.node(n).is_some() => n,

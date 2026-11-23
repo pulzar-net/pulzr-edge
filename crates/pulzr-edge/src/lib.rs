@@ -1,4 +1,4 @@
-//! Pulzr edge daemon: speaks the Pulzar protocol for the devices behind a gateway.
+//! Pulzr edge daemon: speaks the Pulzr protocol for the devices behind a gateway.
 
 #[cfg(all(target_endian = "little", feature = "ble"))]
 pub mod ble;

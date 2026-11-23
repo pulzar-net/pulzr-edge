@@ -1,6 +1,6 @@
 [package]
 name = "pulzr-edge"
-description = "Pulzr edge daemon: speaks the Pulzar protocol for the devices behind a PulzarOS gateway (Modbus RTU and TCP first)"
+description = "Pulzr edge daemon: speaks the Pulzr protocol for the devices behind a PulzrOS gateway (Modbus RTU and TCP first)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

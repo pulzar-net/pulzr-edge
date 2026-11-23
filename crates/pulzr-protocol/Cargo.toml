@@ -1,6 +1,6 @@
 [package]
 name = "pulzr-protocol"
-description = "Pulzar protocol v1 message types, generated from the protocol repository's JSON Schema"
+description = "Pulzr protocol v1 message types, generated from the protocol repository's JSON Schema"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
