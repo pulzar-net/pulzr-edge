@@ -3,14 +3,26 @@
 //! pulzr-probe assign <radio id> modbus   a person's "This is a Modbus adapter"
 //! pulzr-probe assign <radio id> none     undo that
 //! pulzr-probe check [FILE]               check a radios.json
+//! pulzr-probe sx130x --spi SLOT           read one concentrator slot now, for
+//!                                         the LoRaWAN stack's own detection
+//!
+//!   --spi <spidev>[:<reset>[:<power>[:<companion reset>...]]]
+//!                                         a concentrator slot on SPI, the
+//!                                         lines as offsets on --gpiochip
+//!                                         (default /dev/gpiochip0); repeatable
+//!   --claimed <protocol>                  its stack owns these radios: name
+//!                                         them, never ask; repeatable
 //!
 //! Writes the report (`{"detected": [...]}`) and prints it. Hotplug runs
 //! `scan` on every tty and bluetooth event and once at boot; it is the only
-//! thing on the gateway that opens a serial port nobody has claimed.
+//! thing on the gateway that opens a serial port nobody has claimed. Only the
+//! boot scan is given `--spi`: a part on SPI does not come and go, and its
+//! read pulses the module's reset.
 
 use pulzr_probe::detect::{parse_umdns, Context, Decisions, Paths, Report, Use};
-use pulzr_probe::probe::Builtin;
-use pulzr_probe::table::Table;
+use pulzr_probe::probe::{first_answer, Builtin, Outcome, Port};
+use pulzr_probe::sx130x::SpiTarget;
+use pulzr_probe::table::{ProbeKind, Protocol, Table};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -22,6 +34,8 @@ struct Args {
     rest: Vec<String>,
     root: PathBuf,
     paths: Paths,
+    spi: Vec<SpiTarget>,
+    claimed: Vec<Protocol>,
 }
 
 fn args() -> Result<Args, String> {
@@ -31,8 +45,12 @@ fn args() -> Result<Args, String> {
         rest: Vec::new(),
         root: PathBuf::from("/"),
         paths: Paths::default(),
+        spi: Vec::new(),
+        claimed: Vec::new(),
     };
     let mut command = None;
+    let mut spi = Vec::new();
+    let mut gpiochip = PathBuf::from("/dev/gpiochip0");
     while let Some(arg) = it.next() {
         let mut value = |name: &str| it.next().ok_or_else(|| format!("{name} needs a value"));
         match arg.as_str() {
@@ -40,6 +58,15 @@ fn args() -> Result<Args, String> {
             "--report" => a.paths.report = value("--report")?.into(),
             "--decisions" => a.paths.decisions = value("--decisions")?.into(),
             "--lan" => a.paths.lan = value("--lan")?.into(),
+            "--spi" => spi.push(value("--spi")?),
+            "--gpiochip" => gpiochip = value("--gpiochip")?.into(),
+            "--claimed" => {
+                let p = value("--claimed")?;
+                a.claimed.push(
+                    serde_json::from_value(serde_json::Value::String(p.clone()))
+                        .map_err(|_| format!("--claimed {p}: not a protocol"))?,
+                );
+            }
             "--version" | "-V" => {
                 println!("pulzr-probe {}", env!("CARGO_PKG_VERSION"));
                 std::process::exit(0);
@@ -51,6 +78,9 @@ fn args() -> Result<Args, String> {
     }
     if let Some(c) = command {
         a.command = c;
+    }
+    for s in &spi {
+        a.spi.push(SpiTarget::parse(s, &gpiochip)?);
     }
     Ok(a)
 }
@@ -103,6 +133,26 @@ fn run() -> Result<(), String> {
     let table = Table::builtin();
     let prober = Builtin;
     let _lock = lock(&a.paths)?;
+    if a.command == "sx130x" {
+        let [target] = a.spi.as_slice() else {
+            return Err("sx130x takes one --spi".to_owned());
+        };
+        return match first_answer(&prober, &[ProbeKind::Sx130xSpi], Port::Spi(target)) {
+            Outcome::Answered(found) => {
+                println!(
+                    "{}",
+                    serde_json::json!({ "chip": found.chip, "path": target.dev })
+                );
+                Ok(())
+            }
+            Outcome::NoAnswer => Err(format!(
+                "{}: no concentrator answered",
+                target.dev.display()
+            )),
+            Outcome::Unavailable => Err("this build cannot read SPI".to_owned()),
+            Outcome::Error(e) => Err(e),
+        };
+    }
     let mut decisions: Decisions = read_json(&a.paths.decisions);
     let previous: Report = read_json(&a.paths.report);
     let lan = fs::read_to_string(&a.paths.lan)
@@ -124,6 +174,8 @@ fn run() -> Result<(), String> {
                 decisions: &decisions,
                 previous: &previous,
                 lan: &lan,
+                spi: &[],
+                claimed: &a.claimed,
                 now,
             };
             match ctx.identify(id)? {
@@ -158,6 +210,8 @@ fn run() -> Result<(), String> {
         decisions: &decisions,
         previous: &previous,
         lan: &lan,
+        spi: &a.spi,
+        claimed: &a.claimed,
         now,
     };
     let report = ctx.scan();

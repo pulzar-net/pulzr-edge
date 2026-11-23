@@ -64,7 +64,10 @@
       "match": { "vid": "0b05", "pid": "190e" } },
     { "id": "csr8510", "label": "Bluetooth 4 adapter (CSR8510)",
       "protocols": ["ble"],
-      "match": { "vid": "0a12", "pid": "0001" } }
+      "match": { "vid": "0a12", "pid": "0001" } },
+    { "id": "semtech-sx130x-usb", "label": "LoRaWAN concentrator (USB)",
+      "protocols": ["lorawan"], "probes": ["sx130x-usb"],
+      "match": { "vid": "0483", "pid": "5740", "product": ["STM32 Virtual ComPort"] } }
   ],
   "lan": [
     { "service": "_slzb-06._tcp", "id": "smlight-slzb-06", "label": "SMLIGHT SLZB-06",

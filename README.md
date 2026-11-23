@@ -288,6 +288,11 @@ pulzr-probe                       # scan: write /var/run/pulzr-probe/radios.json
 pulzr-probe identify <radio id>   # a person's Identify: probe a port nobody could name
 pulzr-probe assign <radio id> modbus|none   # "This is a Modbus adapter", or undo it
 pulzr-probe check [radios.json]   # check a table
+pulzr-probe sx130x --spi <slot>   # read one SPI concentrator slot, for a LoRaWAN stack's own detection
+
+  --spi <spidev>[:<reset>[:<power>[:<companion reset>...]]]   a concentrator slot on SPI (boot scan only)
+  --gpiochip <path>                                           the lines' chip (/dev/gpiochip0)
+  --claimed <protocol>                                        its stack owns these radios: name, never ask
 ```
 
 1. **Identity from sysfs**, never from the port's name: USB vendor and product
@@ -322,11 +327,25 @@ What a probe asks sits behind `probe::Prober`, and `Builtin` is what ships:
 | `ezsp` | ASH RST, EZSP `version`, `getValue(VERSION_INFO)`, `getEui64`, the manufacturer and board tokens (reads only) | `zigbee_host::probe` in pulzar-net/zigbee-bridge (feature `zigbee`, on by default) |
 | `znp` | the CC2652 bootloader-skip byte, SYS_PING, SYS_VERSION, UTIL_GET_DEVICE_INFO (reads only) | `zigbee_host::probe`, zigbee-bridge v0.2.0 |
 | `deconz` | VERSION, MAC_ADDRESS (reads only) | `zigbee_host::probe`, zigbee-bridge v0.2.0 |
+| `sx130x-usb` | `REQ_PING` to Semtech's USB reference MCU, which answers its unique id and firmware (reads only) | pulzr-probe's own `sx130x.rs`, frames from sx1302_hal's `loragw_mcu.c` |
+| `sx130x-spi` | one reset with the slot's own lines, then the SX1302/3 `COMMON_VERSION` or SX1301 version register | pulzr-probe's own `sx130x.rs`, frames from sx1302_hal's `loragw_spi.c` |
 
 A kind with no probe built in answers `probe: unavailable`: the adapter is
 reported as the table says it ships (`protocol`, `ncp`) and nothing is written
 to its port. Each probe is bounded (about 3 s) and closes the
 port before it returns.
+
+LoRaWAN concentrators on SPI (a Pi's HAT) have no discovery, so the caller
+names each slot with `--spi`, with the lines the board wires to it, and a slot
+is listed (`bus: spi`, `spi-spidev0.0`) only when a real version answers
+(0x10 SX1302, 0x12 SX1303, 0x67 SX1301): an empty header reads 0x00, 0xff or
+a constant. The lines are only those, never a sweep (trying lines until one
+resets a chip put a Waveshare HAT's GNSS into standby), and are held through
+the GPIO character device for the read and handed back after, since
+concentratord claims the same ones. A scan without `--spi` keeps what the last
+one found: only a boot scan pulses a reset. Once the gateway's LoRaWAN stack is
+installed it passes `--claimed lorawan`, and a concentrator is named and never
+asked.
 
 Coordinators on the LAN (SLZB-06, UZG-01) come from mDNS: PulzrOS saves
 `ubus call umdns browse` to `/var/run/pulzr-probe/mdns.json`, and a service type

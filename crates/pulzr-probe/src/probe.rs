@@ -7,6 +7,7 @@
 //! answer [`Outcome::Unavailable`] and the radio is reported by what the table
 //! says it is.
 
+use crate::sx130x::SpiTarget;
 use crate::table::{ProbeKind, Protocol};
 use std::path::Path;
 
@@ -17,6 +18,8 @@ pub enum Port<'a> {
     Serial(&'a Path),
     /// A coordinator on the LAN serving its serial port over TCP.
     Tcp(&'a str, u16),
+    /// A concentrator slot on SPI, with the lines that reset it.
+    Spi(&'a SpiTarget),
 }
 
 /// What a radio said about itself.
@@ -58,7 +61,8 @@ impl Prober for NoStacks {
 }
 
 /// What this build can ask: an OpenThread RCP, whose two Spinel reads are
-/// pulzr-probe's own ([`crate::spinel`]); a Z-Wave controller through
+/// pulzr-probe's own ([`crate::spinel`]); a LoRaWAN concentrator, on USB or
+/// SPI, also pulzr-probe's own ([`crate::sx130x`]); a Z-Wave controller through
 /// zwave-bridge's `zwave_serial::probe` (feature `zwave`); and an EmberZNet
 /// coordinator through zigbee-bridge's `zigbee_host::probe` (feature
 /// `zigbee`). ZNP and deCONZ are unavailable until zigbee-host probes them.
@@ -68,6 +72,8 @@ impl Prober for Builtin {
     fn probe(&self, kind: ProbeKind, port: Port) -> Outcome {
         match (kind, port) {
             (ProbeKind::Spinel, Port::Serial(path)) => crate::spinel::probe(path),
+            (ProbeKind::Sx130xUsb, Port::Serial(path)) => crate::sx130x::probe_usb(path),
+            (ProbeKind::Sx130xSpi, Port::Spi(target)) => crate::sx130x::probe_spi(target),
             #[cfg(feature = "zwave")]
             (ProbeKind::ZwaveSerial, Port::Serial(path)) => match path.to_str() {
                 Some(path) => zwave(path),

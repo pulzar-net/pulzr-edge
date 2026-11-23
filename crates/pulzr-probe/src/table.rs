@@ -21,6 +21,7 @@ pub enum Protocol {
     Zwave,
     Thread,
     Ble,
+    Lorawan,
 }
 
 /// The one harmless exchange each protocol answers, by the co-processor's
@@ -38,6 +39,12 @@ pub enum ProbeKind {
     ZwaveSerial,
     /// OpenThread RCP: Spinel `PROP_VALUE_GET NCP_VERSION`.
     Spinel,
+    /// A LoRaWAN concentrator behind Semtech's USB reference MCU: its
+    /// `REQ_PING` ([`crate::sx130x`]).
+    Sx130xUsb,
+    /// A LoRaWAN concentrator on SPI: one reset with the board's lines, and
+    /// its version register. Never in the table: a board names its SPI slots.
+    Sx130xSpi,
 }
 
 impl ProbeKind {
@@ -46,6 +53,7 @@ impl ProbeKind {
             ProbeKind::Ezsp | ProbeKind::Znp | ProbeKind::Deconz => Protocol::Zigbee,
             ProbeKind::ZwaveSerial => Protocol::Zwave,
             ProbeKind::Spinel => Protocol::Thread,
+            ProbeKind::Sx130xUsb | ProbeKind::Sx130xSpi => Protocol::Lorawan,
         }
     }
 
@@ -57,6 +65,7 @@ impl ProbeKind {
             ProbeKind::Deconz => "deconz",
             ProbeKind::ZwaveSerial => "zwave-serial",
             ProbeKind::Spinel => "spinel",
+            ProbeKind::Sx130xUsb | ProbeKind::Sx130xSpi => "sx130x",
         }
     }
 

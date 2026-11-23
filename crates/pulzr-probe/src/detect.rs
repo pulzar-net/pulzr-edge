@@ -2,6 +2,7 @@
 //! may be asked, ask it, and say what it is.
 
 use crate::probe::{first_answer, Answer, Outcome, Port, Prober};
+use crate::sx130x::SpiTarget;
 use crate::sysfs::{self, Usb};
 use crate::table::{ProbeKind, Protocol, Table, UsbIdentity};
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,7 @@ pub enum Bus {
     Usb,
     Uart,
     Lan,
+    Spi,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,6 +140,15 @@ pub struct Context<'a> {
     /// what its probe learned, and is not asked again.
     pub previous: &'a Report,
     pub lan: &'a [LanHost],
+    /// The concentrator slots the board names on SPI, to read this scan.
+    /// Empty on a scan that is not to touch them (hotplug: an SPI part does
+    /// not come and go), which keeps what the last one found.
+    pub spi: &'a [SpiTarget],
+    /// Protocols whose stack is installed and owns its radios (PulzrOS's
+    /// pulzr-lorawan, whose concentratord resets and talks to the
+    /// concentrator itself). Such a radio is named and never asked: a probe
+    /// in the middle of its stack's own exchange would break it.
+    pub claimed: &'a [Protocol],
     pub now: u64,
 }
 
@@ -283,6 +294,14 @@ impl Context<'_> {
         d.ncp = adapter.probes.first().map(|k| k.ncp().to_owned());
         d.state = readiness(d.protocol);
 
+        if adapter.protocols.iter().any(|p| self.claimed.contains(p)) {
+            if let Some(b) = before {
+                carry(&mut d, b);
+            }
+            d.state = State::InUse;
+            return d;
+        }
+
         let dev_path = self.root.join(dev.trim_start_matches('/'));
         if sysfs::open_elsewhere(self.root, &dev_path) {
             // Somebody is talking to it. What it was when it was last asked
@@ -396,6 +415,46 @@ impl Context<'_> {
         Some(d)
     }
 
+    /// A concentrator on an SPI slot, if one answers there. SPI cannot say
+    /// a part is there without it answering, so a slot with none is not
+    /// listed at all.
+    fn spi_slot(&self, target: &SpiTarget) -> Option<Detected> {
+        let id = target.id();
+        let path = target.dev.to_string_lossy().into_owned();
+        let (since, _) = self.since(&id, Some(&path));
+        let a = match first_answer(self.prober, &[ProbeKind::Sx130xSpi], Port::Spi(target)) {
+            Outcome::Answered(a) => a,
+            _ => return None,
+        };
+        let chip = a.chip.clone();
+        let mut d = Detected {
+            id,
+            bus: Bus::Spi,
+            port: None,
+            path: Some(path),
+            adapter: None,
+            label: match &chip {
+                Some(c) => format!("LoRaWAN concentrator ({c})"),
+                None => "LoRaWAN concentrator".to_owned(),
+            },
+            protocol: Some(Protocol::Lorawan),
+            protocols: vec![Protocol::Lorawan],
+            ncp: None,
+            firmware: None,
+            ezsp: None,
+            chip: None,
+            address: None,
+            usb: None,
+            probe: None,
+            use_: None,
+            state: State::Free,
+            since,
+        };
+        apply(&mut d, &a);
+        d.state = readiness(d.protocol);
+        Some(d)
+    }
+
     /// Everything plugged in or on the LAN now. A radio that went away is
     /// simply not listed; the platform notices it is gone by comparing.
     pub fn scan(&self) -> Report {
@@ -404,6 +463,26 @@ impl Context<'_> {
             .map(|p| self.serial(p))
             .collect();
         detected.extend(sysfs::bluetooth(self.root).iter().map(|h| self.hci(h)));
+        let lorawan_claimed = self.claimed.contains(&Protocol::Lorawan);
+        if self.spi.is_empty() || lorawan_claimed {
+            // Not read this scan: what the last one found stands, its stack's
+            // once LoRaWAN owns it.
+            detected.extend(
+                self.previous
+                    .detected
+                    .iter()
+                    .filter(|d| d.bus == Bus::Spi)
+                    .map(|d| {
+                        let mut d = d.clone();
+                        if lorawan_claimed {
+                            d.state = State::InUse;
+                        }
+                        d
+                    }),
+            );
+        } else {
+            detected.extend(self.spi.iter().filter_map(|t| self.spi_slot(t)));
+        }
         let mut seen = Vec::new();
         for host in self.lan {
             if let Some(d) = self.lan_host(host) {

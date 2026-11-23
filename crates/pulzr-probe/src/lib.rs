@@ -5,6 +5,8 @@
 //! 2. Name it from the table of known adapters ([`table`], `radios.json`).
 //! 3. Ask it what it runs, only if the table named it and nothing has it open
 //!    ([`detect`], through a stack's probe, [`probe`]).
+//! 4. Read the LoRaWAN concentrator slots the board names on SPI, which has no
+//!    discovery ([`sx130x`]), unless the gateway's LoRaWAN already owns them.
 //!
 //! The result is `radios.detected` (pulzr-protocol's `detectedRadio`), which
 //! PulzrOS puts in its claim report and its retained MQTT state.
@@ -12,5 +14,6 @@
 pub mod detect;
 pub mod probe;
 pub mod spinel;
+pub mod sx130x;
 pub mod sysfs;
 pub mod table;

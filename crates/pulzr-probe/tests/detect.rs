@@ -5,6 +5,7 @@ use pulzr_probe::detect::{
     parse_umdns, Context, Decisions, Detected, Identified, ProbeState, Report, State, Use,
 };
 use pulzr_probe::probe::{Answer, Outcome, Port, Prober};
+use pulzr_probe::sx130x::SpiTarget;
 use pulzr_probe::table::{ProbeKind, Protocol, Table};
 use std::cell::RefCell;
 use std::fs;
@@ -190,6 +191,7 @@ impl Prober for Bench {
         let name = match port {
             Port::Serial(p) => p.file_name().unwrap().to_string_lossy().into_owned(),
             Port::Tcp(h, p) => format!("{h}:{p}"),
+            Port::Spi(t) => t.dev.file_name().unwrap().to_string_lossy().into_owned(),
         };
         self.asked.borrow_mut().push((name.clone(), kind));
         match self
@@ -227,6 +229,8 @@ impl<'a> Run<'a> {
             decisions: &self.decisions,
             previous: &self.previous,
             lan: &[],
+            spi: &[],
+            claimed: &[],
             now,
         }
     }
@@ -432,6 +436,8 @@ fn without_a_stack_a_known_dongle_is_reported_as_it_ships() {
         decisions: &Decisions::default(),
         previous: &Report::default(),
         lan: &[],
+        spi: &[],
+        claimed: &[],
         now: 5,
     };
     let d = ctx.scan().detected.remove(0);
@@ -586,6 +592,8 @@ fn lan_coordinators_from_mdns() {
         decisions: &Decisions::default(),
         previous: &Report::default(),
         lan: &hosts,
+        spi: &[],
+        claimed: &[],
         now: 1,
     };
     let r = ctx.scan();
@@ -627,17 +635,173 @@ fn the_report_is_pulzr_protocol_detected_radios() {
         "ttyUSB1",
     );
     f.hci(&Usb::new("1-1.4", "0bda", "8771"), "hci0");
-    let bench = Bench::default().answering("ttyUSB0", ProbeKind::Ezsp, "7.4.4.0");
+    f.tty(&rak5146("1-1.6"), 0, "ttyACM1");
+    let mut bench = Bench::default()
+        .answering("ttyUSB0", ProbeKind::Ezsp, "7.4.4.0")
+        .answering("ttyACM1", ProbeKind::Sx130xUsb, "01.00.02");
+    bench.answers.push((
+        "spidev0.0",
+        ProbeKind::Sx130xSpi,
+        Answer {
+            chip: Some("SX1302".into()),
+            ..Default::default()
+        },
+    ));
     let mut run = Run::new(&bench);
     run.decisions
         .assigned
         .insert("usb-1a86_7523-1-1.5".into(), Use::Modbus);
-    let report = run.scan(&f);
-    assert_eq!(report.detected.len(), 4);
+    let spi = [hat()];
+    let report = Context {
+        spi: &spi,
+        ..run.ctx(&f, 1_795_618_931)
+    }
+    .scan();
+    assert_eq!(report.detected.len(), 6);
     let body = serde_json::json!({"v": 1, "radios": serde_json::to_value(&report).unwrap()});
     let errors: Vec<String> = state
         .iter_errors(&body)
         .map(|e| format!("{e} at {}", e.instance_path()))
         .collect();
     assert!(errors.is_empty(), "{errors:?}\n{body:#}");
+}
+
+// ── LoRaWAN concentrators ─────────────────────────────────────────────────
+
+/// A RAK5146 USB, as it enumerates: the STM32 of Semtech's USB reference.
+fn rak5146(port: &str) -> Usb<'_> {
+    Usb::new(port, "0483", "5740").product("STM32 Virtual ComPort")
+}
+
+fn hat() -> SpiTarget {
+    SpiTarget::parse("/dev/spidev0.0:17:18", Path::new("/dev/gpiochip0")).unwrap()
+}
+
+#[test]
+fn a_usb_concentrator_is_named_and_pinged() {
+    let f = Fixture::new();
+    f.tty(&rak5146("1-1.3"), 0, "ttyACM0");
+    let bench = Bench::default().answering("ttyACM0", ProbeKind::Sx130xUsb, "01.00.02");
+    let r = Run::new(&bench).scan(&f);
+    let d = by_path(&r, "/dev/ttyACM0");
+    assert_eq!(d.protocol, Some(Protocol::Lorawan));
+    assert_eq!(d.ncp.as_deref(), Some("sx130x"));
+    assert_eq!(d.firmware.as_deref(), Some("01.00.02"));
+    assert_eq!(d.state, State::Free);
+    assert_eq!(bench.asked_about("ttyACM0"), vec![ProbeKind::Sx130xUsb]);
+}
+
+#[test]
+fn a_concentrator_lorawan_owns_is_never_asked() {
+    let f = Fixture::new();
+    f.tty(&rak5146("1-1.3"), 0, "ttyACM0");
+    let bench = Bench::default().answering("ttyACM0", ProbeKind::Sx130xUsb, "01.00.02");
+    let run = Run::new(&bench);
+    let ctx = Context {
+        claimed: &[Protocol::Lorawan],
+        ..run.ctx(&f, 1)
+    };
+    let r = ctx.scan();
+    let d = by_path(&r, "/dev/ttyACM0");
+    assert_eq!(d.protocol, Some(Protocol::Lorawan));
+    assert_eq!(d.state, State::InUse);
+    assert!(bench.asked.borrow().is_empty());
+}
+
+#[test]
+fn an_stm32_that_is_not_the_reference_is_not_a_concentrator() {
+    let f = Fixture::new();
+    f.tty(
+        &Usb::new("1-1.3", "0483", "5740").product("Some Printer"),
+        0,
+        "ttyACM0",
+    );
+    let bench = Bench::default();
+    let r = Run::new(&bench).scan(&f);
+    assert_eq!(by_path(&r, "/dev/ttyACM0").protocol, None);
+    assert!(bench.asked.borrow().is_empty());
+}
+
+#[test]
+fn an_spi_slot_is_listed_when_a_part_answers() {
+    let f = Fixture::new();
+    let bench = Bench {
+        answers: vec![(
+            "spidev0.0",
+            ProbeKind::Sx130xSpi,
+            Answer {
+                chip: Some("SX1302".into()),
+                ..Default::default()
+            },
+        )],
+        ..Default::default()
+    };
+    let run = Run::new(&bench);
+    let spi = [hat()];
+    let r = Context {
+        spi: &spi,
+        ..run.ctx(&f, 1)
+    }
+    .scan();
+    let d = by_path(&r, "/dev/spidev0.0");
+    assert_eq!(d.id, "spi-spidev0.0");
+    assert_eq!(d.label, "LoRaWAN concentrator (SX1302)");
+    assert_eq!(d.protocol, Some(Protocol::Lorawan));
+    assert_eq!(d.chip.as_deref(), Some("SX1302"));
+    assert_eq!(d.state, State::Free);
+
+    // Nothing on the header: not listed at all.
+    let quiet = Bench::default();
+    let run = Run::new(&quiet);
+    assert!(Context {
+        spi: &spi,
+        ..run.ctx(&f, 1)
+    }
+    .scan()
+    .detected
+    .is_empty());
+    assert_eq!(quiet.asked_about("spidev0.0"), vec![ProbeKind::Sx130xSpi]);
+}
+
+#[test]
+fn a_scan_without_spi_keeps_the_last_spi_answer_and_never_resets() {
+    let f = Fixture::new();
+    let found = Bench {
+        answers: vec![(
+            "spidev0.0",
+            ProbeKind::Sx130xSpi,
+            Answer {
+                chip: Some("SX1303".into()),
+                ..Default::default()
+            },
+        )],
+        ..Default::default()
+    };
+    let spi = [hat()];
+    let first = {
+        let run = Run::new(&found);
+        Context {
+            spi: &spi,
+            ..run.ctx(&f, 1)
+        }
+        .scan()
+    };
+
+    // A hotplug scan: no --spi. The slot stands, and nothing was asked.
+    let bench = Bench::default();
+    let mut run = Run::new(&bench);
+    run.previous = first.clone();
+    let r = run.ctx(&f, 2).scan();
+    assert_eq!(r.detected, first.detected);
+    assert!(bench.asked.borrow().is_empty());
+
+    // Once LoRaWAN is installed it owns the slot, even on a boot scan.
+    let r = Context {
+        spi: &spi,
+        claimed: &[Protocol::Lorawan],
+        ..run.ctx(&f, 3)
+    }
+    .scan();
+    assert_eq!(by_path(&r, "/dev/spidev0.0").state, State::InUse);
+    assert!(bench.asked.borrow().is_empty());
 }
