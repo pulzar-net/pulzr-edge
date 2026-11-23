@@ -2366,7 +2366,7 @@ dependencies = [
 
 [[package]]
 name = "pulzr-edge"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2405,7 +2405,7 @@ dependencies = [
 
 [[package]]
 name = "pulzr-probe"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "jsonschema",
  "libc",
@@ -2420,7 +2420,7 @@ dependencies = [
 
 [[package]]
 name = "pulzr-protocol"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "chrono",
  "jsonschema",

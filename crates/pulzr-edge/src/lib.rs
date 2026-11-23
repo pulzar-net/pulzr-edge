@@ -4,6 +4,8 @@
 pub mod ble;
 pub mod buffer;
 pub mod config;
+#[cfg(feature = "ip")]
+pub mod ip;
 #[cfg(feature = "matter")]
 pub mod matter;
 #[cfg(feature = "modbus")]

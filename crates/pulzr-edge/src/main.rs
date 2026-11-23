@@ -2,7 +2,7 @@
 // module's feature alone, so the imports and helpers of the processes it does
 // not run go unused there; the default build, which CI lints, has them all.
 #![cfg_attr(
-    not(feature = "modbus"),
+    not(all(feature = "modbus", feature = "ip")),
     allow(unused_imports, dead_code)
 )]
 
@@ -22,6 +22,10 @@ async fn main() -> Result<()> {
         }
         Some("--help" | "-h") | None => usage(),
         Some("radio") => return radio(args.collect()).await,
+        Some("ip") => match args.next() {
+            Some(p) => return run_ip(Config::load(std::path::Path::new(&p))?).await,
+            None => usage(),
+        },
         Some("ble") => match args.next() {
             Some(p) => (true, p.into()),
             None => usage(),
@@ -154,6 +158,7 @@ fn usage() -> ! {
     eprintln!(
         "usage: pulzr-edge <config.toml>                       Modbus
        pulzr-edge ble <config.toml>                   Bluetooth LE ([ble] in the config)
+       pulzr-edge ip <config.toml>                    requests to LAN devices ([ip] in the config)
        pulzr-edge radio serve <radio id> <config.toml>  a radio module (docs/radio-modules.md in PulzrOS)
        pulzr-edge radio <radio id> <op> < params.json   one op, as the console API sends it"
     );
@@ -219,7 +224,9 @@ async fn radio(args: Vec<String>) -> Result<()> {
 /// the same adapter and broker login.
 #[cfg(not(all(target_endian = "little", feature = "ble")))]
 async fn run_ble(_cfg: Config) -> Result<()> {
-    anyhow::bail!("this pulzr-edge has no Bluetooth (pulzr-edge-ble has it, on little-endian machines)")
+    anyhow::bail!(
+        "this pulzr-edge has no Bluetooth (pulzr-edge-ble has it, on little-endian machines)"
+    )
 }
 
 #[cfg(all(target_endian = "little", feature = "ble"))]
@@ -261,6 +268,47 @@ async fn run_ble(cfg: Config) -> Result<()> {
     let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
     out.flush();
     tracing::info!(left_in_buffer = out.pending(), "stopped");
+    Ok(())
+}
+
+#[cfg(not(feature = "ip"))]
+async fn run_ip(_cfg: Config) -> Result<()> {
+    anyhow::bail!("this pulzr-edge makes no IP requests (pulzr-edge-ip does)")
+}
+
+/// `pulzr-edge ip`: requests to the LAN's devices for their codecs, as its own
+/// process with its own buffer and MQTT session (client id `<adapter>-ip`).
+#[cfg(feature = "ip")]
+async fn run_ip(cfg: Config) -> Result<()> {
+    let filter =
+        tracing_subscriber::EnvFilter::try_new(&cfg.log.level).unwrap_or_else(|_| "info".into());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    let Some(ip) = cfg.ip.clone() else {
+        tracing::warn!("no [ip] in the config; nothing to do");
+        std::process::exit(3);
+    };
+    let adapter = cfg.adapter();
+    let out = Outbox::open(
+        &cfg.state_dir.join("ip"),
+        &adapter,
+        &cfg.gateway_eui,
+        cfg.buffer.max_bytes,
+    )?;
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), %adapter, subnets = ip.lan.len(), "pulzr-edge ip starting");
+    let (stop_tx, stop_rx) = watch::channel(false);
+    let router = Arc::new(pulzr_edge::ip::Router::new(ip));
+    let opts = mqtt::options(&cfg.broker, &format!("{adapter}-ip")).context("broker options")?;
+    let session = tokio::spawn(mqtt::run(
+        opts,
+        cfg.broker.clone(),
+        out.clone(),
+        Arc::new(router),
+        stop_rx,
+    ));
+    shutdown_signal().await;
+    let _ = stop_tx.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
+    out.flush();
     Ok(())
 }
 

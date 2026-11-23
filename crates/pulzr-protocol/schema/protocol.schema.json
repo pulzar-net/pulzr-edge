@@ -358,6 +358,57 @@
       },
       "additionalProperties": false
     },
+    "ipAddress": {
+      "type": "string",
+      "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$"
+    },
+    "ipHttp": {
+      "type": "object",
+      "required": ["address", "method", "path"],
+      "properties": {
+        "address": { "$ref": "#/$defs/ipAddress" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] },
+        "path": { "type": "string", "pattern": "^/[^\\s]*$", "maxLength": 2048 },
+        "headers": { "type": "object", "maxProperties": 32,
+                     "additionalProperties": { "type": "string", "maxLength": 1024 } },
+        "body": { "type": "string", "maxLength": 65536 },
+        "body_b64": { "type": "string", "contentEncoding": "base64", "maxLength": 87384 },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 30000 },
+        "max_bytes": { "type": "integer", "minimum": 1, "maximum": 49152 },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "not": { "required": ["body", "body_b64"] },
+      "additionalProperties": false
+    },
+    "ipTcp": {
+      "type": "object",
+      "required": ["address", "port"],
+      "properties": {
+        "address": { "$ref": "#/$defs/ipAddress" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "send_b64": { "type": "string", "contentEncoding": "base64", "maxLength": 87384 },
+        "until_b64": { "type": "string", "contentEncoding": "base64", "maxLength": 64 },
+        "max_bytes": { "type": "integer", "minimum": 0, "maximum": 49152 },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 30000 },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    },
+    "ipUdp": {
+      "type": "object",
+      "required": ["address", "port", "send_b64"],
+      "properties": {
+        "address": { "$ref": "#/$defs/ipAddress" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "send_b64": { "type": "string", "contentEncoding": "base64", "maxLength": 2048 },
+        "response": { "type": "boolean" },
+        "max_bytes": { "type": "integer", "minimum": 1, "maximum": 49152 },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 30000 },
+        "label": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    },
     "zigbeeOta": {
       "type": "object",
       "required": ["url", "sha256"],
@@ -473,7 +524,10 @@
         { "if": { "properties": { "name": { "const": "zigbee.zcl" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZcl" } }, "required": ["params"] } },
         { "if": { "properties": { "name": { "const": "zigbee.zdo" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeZdo" } }, "required": ["params"] } },
         { "if": { "properties": { "name": { "const": "zigbee.wait" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeWait" } }, "required": ["params"] } },
-        { "if": { "properties": { "name": { "const": "zigbee.ota" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeOta" } }, "required": ["params"] } }
+        { "if": { "properties": { "name": { "const": "zigbee.ota" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/zigbeeOta" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "ip.http" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/ipHttp" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "ip.tcp" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/ipTcp" } }, "required": ["params"] } },
+        { "if": { "properties": { "name": { "const": "ip.udp" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/ipUdp" } }, "required": ["params"] } }
       ],
       "additionalProperties": false
     },

@@ -9,14 +9,17 @@ license.workspace = true
 # Every module, for development and the tests. A gateway gets one binary per
 # module instead, each built with only its own feature, so it carries only
 # what it runs: pulzr-edge (Modbus), pulzr-edge-zigbee, pulzr-edge-zwave,
-# pulzr-edge-matter, pulzr-edge-ble (release.yml and
+# pulzr-edge-matter, pulzr-edge-ble, pulzr-edge-ip (release.yml and
 # PulzrOS's sdk/packages/pulzr-edge). Every one keeps the radio control
 # client, so any of them can talk to a running module.
-default = ["modbus", "ble", "zigbee", "zwave", "matter"]
+default = ["modbus", "ble", "zigbee", "zwave", "matter", "ip"]
 # Modbus RTU and TCP buses (`pulzr-edge <config>`).
 modbus = ["dep:tokio-modbus", "dep:tokio-serial"]
 # Bluetooth LE (`pulzr-edge ble`); little-endian machines only (bt-hci).
 ble = ["dep:bluetooth-adv", "dep:bluetooth-host"]
+# Requests to devices on the LAN for their codecs (`pulzr-edge ip`):
+# ip.http, ip.tcp and ip.udp.
+ip = ["dep:reqwest"]
 # The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
 sim = ["modbus", "tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on

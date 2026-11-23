@@ -86,6 +86,7 @@ jobs:
           pulzr-edge-zwave pulzr-edge pulzr-edge zwave
           pulzr-edge-matter pulzr-edge pulzr-edge matter
           pulzr-edge-ble pulzr-edge pulzr-edge ble
+          pulzr-edge-ip pulzr-edge pulzr-edge ip
           pulzr-edge-sim pulzr-edge pulzr-edge-sim sim
           pulzr-probe pulzr-probe pulzr-probe -"
             while read -r name pkg bin_name features; do

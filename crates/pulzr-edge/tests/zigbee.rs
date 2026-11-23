@@ -10,8 +10,8 @@ use base64::Engine;
 use pulzr_edge::outbox::Outbox;
 use pulzr_edge::radio::{Paths, RadioCtx, RadioModule};
 use serde_json::{json, Value};
-use zigbee_sim::{SimConfig, SimDevice, SimNcp, Simulator};
 use zigbee_primitives::Ieee;
+use zigbee_sim::{SimConfig, SimDevice, SimNcp, Simulator};
 use zigbee_zcl::{attr, cluster_id, Value as Zv};
 
 const TH: Ieee = Ieee(0x00124B0000000001);

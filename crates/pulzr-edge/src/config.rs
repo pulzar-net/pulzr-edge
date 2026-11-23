@@ -31,6 +31,14 @@ pub struct Config {
     #[cfg(not(all(target_endian = "little", feature = "ble")))]
     #[serde(default)]
     pub ble: Option<toml::Value>,
+    /// Requests to devices on the LAN (`pulzr-edge ip`).
+    #[cfg(feature = "ip")]
+    #[serde(default)]
+    pub ip: Option<crate::ip::IpCfg>,
+    /// Read and ignored where this build has no IP requests.
+    #[cfg(not(feature = "ip"))]
+    #[serde(default)]
+    pub ip: Option<toml::Value>,
     /// Where device firmware may be fetched from.
     #[serde(default)]
     pub firmware: FirmwareCfg,
@@ -280,6 +288,10 @@ impl Config {
         #[cfg(all(target_endian = "little", feature = "ble"))]
         if let Some(b) = &self.ble {
             b.validate()?;
+        }
+        #[cfg(feature = "ip")]
+        if let Some(ip) = &self.ip {
+            ip.validate()?;
         }
         let mut seen = std::collections::HashSet::new();
         for b in &self.buses {

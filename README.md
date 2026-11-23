@@ -231,6 +231,28 @@ Tests: `tests/ble.rs` checks the bodies against the protocol schema, and runs
 the module end to end against Google's Bumble (a virtual controller and a
 scripted KKM beacon, `tests/bumble/beacon.py`) in CI.
 
+## IP requests (`pulzr-edge ip`)
+
+Requests to devices on the gateway's LAN, made for their device type's codec
+(pulzr-protocol README, "IP requests"): `ip.http`, `ip.tcp` and `ip.udp` for
+an `ext:` key, in order per device. The codec runs in Pulzar and knows the
+device (an IP camera's settings API); this knows nothing about any device. It
+runs as its own process, `pulzr-edge ip <config.toml>`, with its own buffer
+under `state_dir/ip` and its own MQTT session (client id `<adapter>-ip`).
+
+```toml
+[ip]
+lan = ["192.168.8.1/24", "10.0.0.2/24"]   # the gateway's addresses on the LAN, with their prefixes
+```
+
+| Fence | |
+|---|---|
+| Where | Only an address on one of `lan`'s subnets, never the gateway's own, the network or the broadcast address. The address is the platform's (the device's record), never the codec's |
+| HTTP | No redirects, no proxy; `ip.http` answers `status`, `headers` and `body` (or `body_b64`) |
+| Size | A body or a read at most 48 KiB; over it is `failed error` |
+| Time | `timeout_ms` at most 30 s; no answer in time is `failed undeliverable` |
+| Log | The key and the request's name, never its params or answer: a device's login rides in them |
+
 ## Radio modules
 
 `pulzr-edge radio serve <radio id> <config>` runs one coordinator, a Zigbee
