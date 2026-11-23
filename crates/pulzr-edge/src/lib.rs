@@ -3,8 +3,6 @@
 #[cfg(all(target_endian = "little", feature = "ble"))]
 pub mod ble;
 pub mod buffer;
-#[cfg(feature = "camera")]
-pub mod camera;
 pub mod config;
 #[cfg(feature = "matter")]
 pub mod matter;

@@ -2,7 +2,7 @@
 // module's feature alone, so the imports and helpers of the processes it does
 // not run go unused there; the default build, which CI lints, has them all.
 #![cfg_attr(
-    not(all(feature = "modbus", feature = "camera")),
+    not(feature = "modbus"),
     allow(unused_imports, dead_code)
 )]
 
@@ -22,10 +22,6 @@ async fn main() -> Result<()> {
         }
         Some("--help" | "-h") | None => usage(),
         Some("radio") => return radio(args.collect()).await,
-        Some("camera") => match args.next() {
-            Some(p) => return run_camera(Config::load(std::path::Path::new(&p))?).await,
-            None => usage(),
-        },
         Some("ble") => match args.next() {
             Some(p) => (true, p.into()),
             None => usage(),
@@ -158,7 +154,6 @@ fn usage() -> ! {
     eprintln!(
         "usage: pulzr-edge <config.toml>                       Modbus
        pulzr-edge ble <config.toml>                   Bluetooth LE ([ble] in the config)
-       pulzr-edge camera <config.toml>                IP cameras ([[camera]] in the config)
        pulzr-edge radio serve <radio id> <config.toml>  a radio module (docs/radio-modules.md in PulzrOS)
        pulzr-edge radio <radio id> <op> < params.json   one op, as the console API sends it"
     );
@@ -266,48 +261,6 @@ async fn run_ble(cfg: Config) -> Result<()> {
     let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
     out.flush();
     tracing::info!(left_in_buffer = out.pending(), "stopped");
-    Ok(())
-}
-
-#[cfg(not(feature = "camera"))]
-async fn run_camera(_cfg: Config) -> Result<()> {
-    anyhow::bail!("this pulzr-edge has no camera support (pulzr-edge-camera has it)")
-}
-
-/// `pulzr-edge camera`: the LAN's IP cameras, as their own process with
-/// their own buffer and MQTT session (client id `<adapter>-camera`).
-#[cfg(feature = "camera")]
-async fn run_camera(cfg: Config) -> Result<()> {
-    let filter =
-        tracing_subscriber::EnvFilter::try_new(&cfg.log.level).unwrap_or_else(|_| "info".into());
-    tracing_subscriber::fmt().with_env_filter(filter).init();
-    if cfg.cameras.is_empty() {
-        tracing::warn!("no [[camera]] in the config; nothing to do");
-        std::process::exit(3);
-    }
-    let adapter = cfg.adapter();
-    let out = Outbox::open(
-        &cfg.state_dir.join("camera"),
-        &adapter,
-        &cfg.gateway_eui,
-        cfg.buffer.max_bytes,
-    )?;
-    tracing::info!(version = env!("CARGO_PKG_VERSION"), %adapter, cameras = cfg.cameras.len(), "pulzr-edge camera starting");
-    let (stop_tx, stop_rx) = watch::channel(false);
-    let router = Arc::new(pulzr_edge::camera::Router::new(&cfg.cameras));
-    let opts =
-        mqtt::options(&cfg.broker, &format!("{adapter}-camera")).context("broker options")?;
-    let session = tokio::spawn(mqtt::run(
-        opts,
-        cfg.broker.clone(),
-        out.clone(),
-        Arc::new(router),
-        stop_rx,
-    ));
-    shutdown_signal().await;
-    let _ = stop_tx.send(true);
-    let _ = tokio::time::timeout(Duration::from_secs(5), session).await;
-    out.flush();
     Ok(())
 }
 

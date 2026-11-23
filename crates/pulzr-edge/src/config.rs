@@ -31,14 +31,6 @@ pub struct Config {
     #[cfg(not(all(target_endian = "little", feature = "ble")))]
     #[serde(default)]
     pub ble: Option<toml::Value>,
-    /// IP cameras on the LAN (`pulzr-edge camera`).
-    #[cfg(feature = "camera")]
-    #[serde(default, rename = "camera")]
-    pub cameras: Vec<crate::camera::CameraCfg>,
-    /// Read and ignored where this build has no cameras.
-    #[cfg(not(feature = "camera"))]
-    #[serde(default, rename = "camera")]
-    pub cameras: Vec<toml::Value>,
     /// Where device firmware may be fetched from.
     #[serde(default)]
     pub firmware: FirmwareCfg,
@@ -288,16 +280,6 @@ impl Config {
         #[cfg(all(target_endian = "little", feature = "ble"))]
         if let Some(b) = &self.ble {
             b.validate()?;
-        }
-        #[cfg(feature = "camera")]
-        {
-            let mut keys = std::collections::HashSet::new();
-            for c in &self.cameras {
-                c.validate()?;
-                if !keys.insert(c.key()) {
-                    bail!("camera {} is listed twice", c.mac);
-                }
-            }
         }
         let mut seen = std::collections::HashSet::new();
         for b in &self.buses {

@@ -9,16 +9,14 @@ license.workspace = true
 # Every module, for development and the tests. A gateway gets one binary per
 # module instead, each built with only its own feature, so it carries only
 # what it runs: pulzr-edge (Modbus), pulzr-edge-zigbee, pulzr-edge-zwave,
-# pulzr-edge-matter, pulzr-edge-ble, pulzr-edge-camera (release.yml and
+# pulzr-edge-matter, pulzr-edge-ble (release.yml and
 # PulzrOS's sdk/packages/pulzr-edge). Every one keeps the radio control
 # client, so any of them can talk to a running module.
-default = ["modbus", "ble", "camera", "zigbee", "zwave", "matter"]
+default = ["modbus", "ble", "zigbee", "zwave", "matter"]
 # Modbus RTU and TCP buses (`pulzr-edge <config>`).
 modbus = ["dep:tokio-modbus", "dep:tokio-serial"]
 # Bluetooth LE (`pulzr-edge ble`); little-endian machines only (bt-hci).
 ble = ["dep:bluetooth-adv", "dep:bluetooth-host"]
-# IP cameras (`pulzr-edge camera`).
-camera = ["dep:des", "dep:quick-xml", "dep:reqwest"]
 # The Modbus TCP device simulator (`pulzr-edge-sim`, the `sim` module).
 sim = ["modbus", "tokio-modbus/tcp-server"]
 # Zigbee coordinators as a radio module (`pulzr-edge radio serve`), on
@@ -81,9 +79,6 @@ zwave-serial = { version = "0.2.1", optional = true }
 matter-controller = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", default-features = false, optional = true }
 matter-model = { git = "https://github.com/pulzar-net/matter-bridge", rev = "289246265195694e9559722f1067fb5f71bde680", optional = true }
 base64 = "0.22"
-# IP cameras (`pulzr-edge camera`): their settings API is plain HTTP on the LAN.
-des = { version = "0.9", optional = true }
-quick-xml = { version = "0.42", optional = true }
 reqwest = { version = "0.13", default-features = false, optional = true }
 hex = "0.4"
 sha2 = { version = "0.11", optional = true }

@@ -231,43 +231,6 @@ Tests: `tests/ble.rs` checks the bodies against the protocol schema, and runs
 the module end to end against Google's Bumble (a virtual controller and a
 scripted KKM beacon, `tests/bumble/beacon.py`) in CI.
 
-## IP cameras (`pulzr-edge camera`)
-
-Cameras on the gateway's LAN, managed through their own settings API, so a
-camera's users are set from its device package's commands instead of its web
-page. It runs as its own process, `pulzr-edge camera <config.toml>`, with its
-own buffer under `state_dir/camera` and its own MQTT session (client id
-`<adapter>-camera`).
-
-```toml
-[[camera]]
-mac = "aa:bb:cc:00:11:22"           # its key: ext:camera.aabbcc001122
-address = "192.168.8.20"            # host or host:port of its web server
-family = "ipc"                      # the settings API it speaks (the only one so far)
-user = "admin"                      # the login the gateway uses
-password_file = "/etc/pulzr-edge/cameras/aabbcc001122"   # read at every command
-```
-
-| Command | Params | Answer |
-|---|---|---|
-| `user.list` | | `ok {users: [{username, group, enabled}]}` |
-| `user.add` | `username`, `password`, `group` (`viewer` default, `operator`, `admin`) | `ok` |
-| `user.password` | `username`, `password` | `ok` |
-| `user.remove` | `username` | `ok` |
-
-Passwords are 8 to 20 printable characters. No answer carries one: the
-package marks them secret, so the platform seals them and opens them only in
-the command it sends. The gateway's own login cannot be removed or changed
-through these commands, which would lock the gateway out.
-
-`ipc` is the family of generic ONVIF cameras (`A_ONVIF_CAMERA` and the like)
-whose accounts live outside ONVIF: a user made with ONVIF `CreateUsers` cannot
-log in to RTSP. Their API is XML over plain HTTP, the login DES-encrypted under
-a fixed key, so the camera's LAN must be the gateway's alone.
-`src/camera/ipc.rs` describes it. A test that adds a viewer to a real camera,
-plays its RTSP stream and removes it again is `#[ignore]`d; its comment says
-how to run it.
-
 ## Radio modules
 
 `pulzr-edge radio serve <radio id> <config>` runs one coordinator, a Zigbee
